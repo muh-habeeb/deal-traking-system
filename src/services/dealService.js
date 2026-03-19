@@ -50,34 +50,34 @@ function containsToken(corpus, token) {
   return corpus.includes(token);
 }
 
-function isCanadaLocation(listing) {
-  const corpus = `${listing.location || ''} ${listing.searchableText || ''}`.toLowerCase();
-  const canadaProvinceCodes = ['ab', 'bc', 'mb', 'nb', 'nl', 'ns', 'nt', 'nu', 'on', 'pe', 'qc', 'sk', 'yt'];
-  const canadaProvinceNames = [
-    'ontario',
-    'quebec',
-    'british columbia',
-    'alberta',
-    'manitoba',
-    'saskatchewan',
-    'nova scotia',
-    'new brunswick',
-    'newfoundland',
-    'labrador',
-    'prince edward island',
-    'northwest territories',
-    'nunavut',
-    'yukon',
-    'canada',
-  ];
+// function isCanadaLocation(listing) {
+//   const corpus = `${listing.location || ''} ${listing.searchableText || ''}`.toLowerCase();
+//   const canadaProvinceCodes = ['ab', 'bc', 'mb', 'nb', 'nl', 'ns', 'nt', 'nu', 'on', 'pe', 'qc', 'sk', 'yt'];
+//   const canadaProvinceNames = [
+//     'ontario',
+//     'quebec',
+//     'british columbia',
+//     'alberta',
+//     'manitoba',
+//     'saskatchewan',
+//     'nova scotia',
+//     'new brunswick',
+//     'newfoundland',
+//     'labrador',
+//     'prince edward island',
+//     'northwest territories',
+//     'nunavut',
+//     'yukon',
+//     'canada',
+//   ];
 
-  if (canadaProvinceNames.some((name) => corpus.includes(name))) {
-    return true;
-  }
+//   if (canadaProvinceNames.some((name) => corpus.includes(name))) {
+//     return true;
+//   }
 
-  const codeRegex = new RegExp(`,\\s*(${canadaProvinceCodes.join('|')})\\b`, 'i');
-  return codeRegex.test(listing.location || '');
-}
+//   const codeRegex = new RegExp(`,\\s*(${canadaProvinceCodes.join('|')})\\b`, 'i');
+//   return codeRegex.test(listing.location || '');
+// }
 
 function matchesFilterLocation(listing, filterLocation) {
   const rawLocation = String(filterLocation || '').trim().toLowerCase();
@@ -85,9 +85,9 @@ function matchesFilterLocation(listing, filterLocation) {
     return true;
   }
 
-  if (rawLocation === 'canada' || rawLocation === 'ca') {
-    return isCanadaLocation(listing);
-  }
+//   if (rawLocation === 'canada' || rawLocation === 'ca') {
+//     return isCanadaLocation(listing);
+//   }
 
   const corpus = `${listing.location || ''} ${listing.searchableText || ''} ${listing.title || ''}`.toLowerCase();
   const tokens = rawLocation
