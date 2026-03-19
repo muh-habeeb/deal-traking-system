@@ -166,6 +166,14 @@ Base path: `/api`
 - keep `.env` out of source control
 - use secure values for secrets and SMTP credentials
 
+### Render Setup
+
+- Build Command: `npm install && npm run prisma:deploy`
+- Start Command: `npm run start`
+- Required env vars at minimum: `DATABASE_URL`, `APP_AUTH_SECRET`, `APP_LOGIN_USERNAME`, `APP_LOGIN_PASSWORD`, SMTP vars
+
+`postinstall` runs `prisma generate`, so Prisma Client is always generated during build.
+
 ## Additional Documentation
 
 For a client-friendly UI usage guide, see `docs/CLIENT_UI_GUIDE.md`.

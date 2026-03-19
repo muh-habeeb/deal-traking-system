@@ -320,7 +320,7 @@ async function saveFacebookSession() {
             window.alert('Facebook session saved successfully. Please refresh session status to confirm.');
         } catch (error) {
             holder.textContent = error.message;
-            
+
         }
     });
 }
@@ -359,7 +359,7 @@ function wireEvents() {
 document.addEventListener('DOMContentLoaded', () => {
     setInterval(() => {
         loadListings();
-    }, 3000)
+    }, 10000)
 }
 );
 (async function init() {
