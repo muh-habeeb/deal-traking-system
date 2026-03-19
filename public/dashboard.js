@@ -274,6 +274,7 @@ async function loadListings() {
 
 async function loadSessionStatus() {
     const holder = document.getElementById('sessionStatus');
+    const info = document.getElementById('info');
 
     try {
         const data = await api('/api/facebook-session/status');
@@ -285,8 +286,10 @@ async function loadSessionStatus() {
 
         holder.innerHTML = `<span class="badge">Session Ready</span><br/>Updated: ${new Date(data.updatedAt).toLocaleString()}<br/>Cookies: ${data.cookieCount || 0}<br/>File size: ${data.size || 0} bytes`;
         setSessionButtonsVisibility(data);
+        info.textContent = 'Facebook session is ready.';
     } catch (error) {
         holder.textContent = error.message;
+        info.textContent = 'error checking Facebook session.';
     }
 }
 
@@ -314,8 +317,10 @@ async function saveFacebookSession() {
             const data = await api('/api/facebook-session/save', { method: 'POST' });
             holder.innerHTML = `${data.message}<br/>Updated: ${new Date(data.updatedAt).toLocaleString()}<br/>Cookies: ${data.cookieCount || 0}`;
             setSessionButtonsVisibility(data);
+            window.alert('Facebook session saved successfully. Please refresh session status to confirm.');
         } catch (error) {
             holder.textContent = error.message;
+            
         }
     });
 }

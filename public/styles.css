@@ -99,8 +99,11 @@ th, td {
 }
 
 a {
-  color: var(--accent);
+  color: var(--panel);
+  padding:4px 8px;
+  border-radius: 12px;
   background: var(--accent-2);
+  text-decoration: none;
 }
 
 .badge {
