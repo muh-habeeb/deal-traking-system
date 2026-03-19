@@ -1,7 +1,7 @@
 const app = require('./app');
 const env = require('./config/env');
 const prisma = require('./config/prisma');
-const { startScrapeJob } = require('./jobs/scrapeJob');
+const { startScrapeJob, runStartupScan } = require('./jobs/scrapeJob');
 const { verifyEmailTransport } = require('./services/emailService');
 const logger = require('./utils/logger');
 
@@ -23,6 +23,13 @@ async function bootstrap() {
     });
 
     startScrapeJob();
+
+    // Run one scan on boot in the background so initial data does not wait for cron tick.
+    setImmediate(() => {
+      runStartupScan().catch((error) => {
+        logger.error('Unexpected startup scan error', { error: error.message });
+      });
+    });
   } catch (error) {
     logger.error('Failed to start server', { error: error.message });
     process.exit(1);

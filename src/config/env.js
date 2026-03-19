@@ -7,6 +7,7 @@ const env = {
   port: Number(process.env.PORT || 4000),
   databaseUrl: process.env.DATABASE_URL,
   scrapeCron: process.env.SCRAPE_CRON || '*/10 * * * *',
+  runScanOnBoot: process.env.RUN_SCAN_ON_BOOT !== 'false',
   maxListingsPerFilter: Number(process.env.MAX_LISTINGS_PER_FILTER || 30),
   listingRetentionHours: Number(process.env.LISTING_RETENTION_HOURS || 24),
   notificationRetentionHours: Number(process.env.NOTIFICATION_RETENTION_HOURS || 12),
