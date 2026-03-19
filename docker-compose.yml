@@ -52,8 +52,9 @@ services:
       NODE_OPTIONS: --dns-result-order=ipv4first
     ports:
       # - "4000:4000"
-      - "80:4000"
-      - "443:4000"
+      - "8080:4000"
+      # - "80:4000" by nginex  proxy and certbot 
+      # - "443:4000"
     volumes:
       - ./playwright:/app/playwright
       - ./data:/app/data

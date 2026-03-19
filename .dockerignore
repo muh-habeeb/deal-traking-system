@@ -9,3 +9,6 @@ playwright/storageState.json
 Dockerfile*
 docker-compose*.yml
 .vscode
+hosting.md
+docs/*
+./docs
