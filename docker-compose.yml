@@ -42,10 +42,10 @@ services:
       SMTP_HOST: smtp.gmail.com
       SMTP_PORT: "587"
       SMTP_SECURE: "true"
-      SMTP_USER: change-me@example.com
-      SMTP_PASS: change-me
-      ALERT_FROM: Deal Tracker <change-me@example.com>
-      ALERT_TO: change-me@example.com
+      SMTP_USER: bb0731275@gmail.com
+      SMTP_PASS: vucuadfpmdfgmyjh
+      ALERT_FROM: Deal Tracker <bb0731275@gmail.com>
+      ALERT_TO: bb0731275@gmail.com
       APP_AUTH_SECRET: change-this-long-secret
       APP_LOGIN_USERNAME: admin
       APP_LOGIN_PASSWORD: admin123
