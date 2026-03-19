@@ -33,6 +33,71 @@ function matchesFilterKeyword(listing, keyword) {
   return tokens.every((token) => corpus.includes(token));
 }
 
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function containsToken(corpus, token) {
+  if (!token) {
+    return true;
+  }
+
+  if (token.length <= 2) {
+    const tokenRegex = new RegExp(`\\b${escapeRegex(token)}\\b`, 'i');
+    return tokenRegex.test(corpus);
+  }
+
+  return corpus.includes(token);
+}
+
+function isCanadaLocation(listing) {
+  const corpus = `${listing.location || ''} ${listing.searchableText || ''}`.toLowerCase();
+  const canadaProvinceCodes = ['ab', 'bc', 'mb', 'nb', 'nl', 'ns', 'nt', 'nu', 'on', 'pe', 'qc', 'sk', 'yt'];
+  const canadaProvinceNames = [
+    'ontario',
+    'quebec',
+    'british columbia',
+    'alberta',
+    'manitoba',
+    'saskatchewan',
+    'nova scotia',
+    'new brunswick',
+    'newfoundland',
+    'labrador',
+    'prince edward island',
+    'northwest territories',
+    'nunavut',
+    'yukon',
+    'canada',
+  ];
+
+  if (canadaProvinceNames.some((name) => corpus.includes(name))) {
+    return true;
+  }
+
+  const codeRegex = new RegExp(`,\\s*(${canadaProvinceCodes.join('|')})\\b`, 'i');
+  return codeRegex.test(listing.location || '');
+}
+
+function matchesFilterLocation(listing, filterLocation) {
+  const rawLocation = String(filterLocation || '').trim().toLowerCase();
+  if (!rawLocation) {
+    return true;
+  }
+
+  if (rawLocation === 'canada' || rawLocation === 'ca') {
+    return isCanadaLocation(listing);
+  }
+
+  const corpus = `${listing.location || ''} ${listing.searchableText || ''} ${listing.title || ''}`.toLowerCase();
+  const tokens = rawLocation
+    .split(/[\s,]+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  return tokens.every((token) => containsToken(corpus, token));
+}
+
 function isLikelyPriceTitle(title) {
   return /(ca\$|c\$|cad\b|\$|\bfree\b|\bgratuit\b)/i.test(String(title || '').trim());
 }
@@ -85,6 +150,7 @@ async function processFilter(filterConfig) {
   const scrapedListings = await scrapeByFilter(filterConfig);
   const freshListings = [];
   let keywordMisses = 0;
+  let locationMisses = 0;
 
   for (const scraped of scrapedListings) {
     if (!scraped.url || !scraped.title) {
@@ -93,6 +159,11 @@ async function processFilter(filterConfig) {
 
     if (!matchesFilterKeyword(scraped, filterConfig.keyword)) {
       keywordMisses += 1;
+      continue;
+    }
+
+    if (!matchesFilterLocation(scraped, filterConfig.location)) {
+      locationMisses += 1;
       continue;
     }
 
@@ -148,6 +219,7 @@ async function processFilter(filterConfig) {
     scraped: scrapedListings.length,
     newListings: freshListings.length,
     keywordMisses,
+    locationMisses,
   });
 
   return freshListings;
