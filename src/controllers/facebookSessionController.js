@@ -28,6 +28,9 @@ async function startSessionLogin(_req, res, next) {
       ...status,
     });
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
     return next(error);
   }
 }
@@ -40,6 +43,9 @@ async function saveSession(_req, res, next) {
       ...status,
     });
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
     return next(error);
   }
 }

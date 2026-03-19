@@ -12,6 +12,7 @@ const env = {
   notificationRetentionHours: Number(process.env.NOTIFICATION_RETENTION_HOURS || 12),
   notificationDelayMs: Number(process.env.NOTIFICATION_DELAY_MS || 2500),
   playwrightHeadless: process.env.PLAYWRIGHT_HEADLESS !== 'false',
+  allowRemoteFacebookLogin: process.env.ALLOW_REMOTE_FACEBOOK_LOGIN === 'true',
   playwrightBaseUrl: process.env.PLAYWRIGHT_BASE_URL || 'https://www.facebook.com/marketplace',
   playwrightStorageStatePath:
     process.env.PLAYWRIGHT_STORAGE_STATE_PATH || 'playwright/storageState.json',

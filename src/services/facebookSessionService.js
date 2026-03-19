@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
 const { getStorageStatePath } = require('../scrapers/facebookMarketplaceScraper');
+const env = require('../config/env');
 
 let activeBrowser = null;
 let activeContext = null;
@@ -54,22 +55,43 @@ async function startFacebookLoginFlow() {
     return getFacebookSessionStatus();
   }
 
-  activeBrowser = await chromium.launch({ headless: false });
-  activeContext = await activeBrowser.newContext();
-  activePage = await activeContext.newPage();
-  startedAt = new Date();
+  const runningOnRender = Boolean(process.env.RENDER);
+  const inProduction = env.nodeEnv === 'production';
+  if ((runningOnRender || inProduction) && !env.allowRemoteFacebookLogin) {
+    const error = new Error(
+      'Interactive Facebook login is disabled in hosted mode. Run login locally or set ALLOW_REMOTE_FACEBOOK_LOGIN=true if your environment supports headed browsers.'
+    );
+    error.status = 400;
+    throw error;
+  }
 
-  await activePage.goto('https://www.facebook.com/login', {
-    waitUntil: 'domcontentloaded',
-    timeout: 60000,
-  });
+  try {
+    activeBrowser = await chromium.launch({ headless: false });
+    activeContext = await activeBrowser.newContext();
+    activePage = await activeContext.newPage();
+    startedAt = new Date();
+
+    await activePage.goto('https://www.facebook.com/login', {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000,
+    });
+  } catch (error) {
+    await closeActiveLoginFlow();
+    const wrapped = new Error(
+      `Unable to open interactive Facebook login browser in this environment: ${error.message}`
+    );
+    wrapped.status = 400;
+    throw wrapped;
+  }
 
   return getFacebookSessionStatus();
 }
 
 async function saveFacebookSession() {
   if (!activeContext) {
-    throw new Error('No active Facebook login session. Click Start Facebook Login first.');
+    const error = new Error('No active Facebook login session. Click Start Facebook Login first.');
+    error.status = 400;
+    throw error;
   }
 
   const storageStatePath = getStorageStatePath();
