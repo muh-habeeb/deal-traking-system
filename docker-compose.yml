@@ -39,6 +39,8 @@ services:
       ALLOW_REMOTE_FACEBOOK_LOGIN: "false"
       PLAYWRIGHT_BASE_URL: https://www.facebook.com/marketplace
       PLAYWRIGHT_STORAGE_STATE_PATH: /app/playwright/storageState.json
+      PLAYWRIGHT_EXECUTABLE_PATH: ""
+      PLAYWRIGHT_BROWSER_ARGS: --no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage
       SMTP_HOST: smtp.gmail.com
       SMTP_PORT: "587"
       SMTP_SECURE: "true"

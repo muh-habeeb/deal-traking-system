@@ -17,6 +17,10 @@ const env = {
   playwrightBaseUrl: process.env.PLAYWRIGHT_BASE_URL || 'https://www.facebook.com/marketplace',
   playwrightStorageStatePath:
     process.env.PLAYWRIGHT_STORAGE_STATE_PATH || 'playwright/storageState.json',
+  playwrightExecutablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH || '',
+  playwrightBrowserArgs:
+    process.env.PLAYWRIGHT_BROWSER_ARGS ||
+    '--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage',
   smtp: {
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT),

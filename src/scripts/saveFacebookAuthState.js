@@ -3,6 +3,7 @@ const path = require('node:path');
 const readline = require('node:readline');
 const { chromium } = require('playwright');
 const env = require('../config/env');
+const { buildChromiumLaunchOptions } = require('../utils/playwright');
 
 function ask(question) {
   const rl = readline.createInterface({
@@ -19,7 +20,7 @@ function ask(question) {
 }
 
 async function main() {
-  const browser = await chromium.launch({ headless: false });
+  const browser = await chromium.launch(buildChromiumLaunchOptions({ forceHeadless: false }));
   const context = await browser.newContext();
   const page = await context.newPage();
 

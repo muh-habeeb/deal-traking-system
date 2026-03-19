@@ -3,6 +3,7 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 const { getStorageStatePath } = require('../scrapers/facebookMarketplaceScraper');
 const env = require('../config/env');
+const { buildChromiumLaunchOptions } = require('../utils/playwright');
 
 let activeBrowser = null;
 let activeContext = null;
@@ -66,7 +67,7 @@ async function startFacebookLoginFlow() {
   }
 
   try {
-    activeBrowser = await chromium.launch({ headless: false });
+    activeBrowser = await chromium.launch(buildChromiumLaunchOptions({ forceHeadless: false }));
     activeContext = await activeBrowser.newContext();
     activePage = await activeContext.newPage();
     startedAt = new Date();

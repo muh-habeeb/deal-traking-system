@@ -4,6 +4,7 @@ const { chromium } = require('playwright');
 const env = require('../config/env');
 const { buildMarketplaceSearchUrl } = require('../utils/urlBuilder');
 const { normalizeListing } = require('../utils/normalizer');
+const { buildChromiumLaunchOptions } = require('../utils/playwright');
 const logger = require('../utils/logger');
 
 function getStorageStatePath() {
@@ -17,7 +18,7 @@ async function hasStorageState() {
 
 async function scrapeByFilter(filterConfig) {
   const stateAvailable = await hasStorageState();
-  const browser = await chromium.launch({ headless: env.playwrightHeadless });
+  const browser = await chromium.launch(buildChromiumLaunchOptions());
 
   const context = await browser.newContext(
     stateAvailable ? { storageState: getStorageStatePath() } : {}
