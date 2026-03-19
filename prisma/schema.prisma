@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id          String         @id @default(cuid())
+  email       String         @unique
+  name        String?
+  createdAt   DateTime       @default(now())
+  filterConfigs FilterConfig[]
+
+  @@index([createdAt])
+}
+
+model FilterConfig {
+  id         String   @id @default(cuid())
+  keyword    String
+  minPrice   Int?
+  maxPrice   Int?
+  location   String
+  createdAt  DateTime @default(now())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([keyword])
+  @@index([location])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model Listing {
+  id               String            @id @default(cuid())
+  title            String
+  price            Int?
+  location         String?
+  url              String            @unique
+  image            String?
+  externalId       String?
+  createdAt        DateTime          @default(now())
+  notificationLogs NotificationLog[]
+
+  @@index([createdAt])
+  @@index([price])
+  @@index([externalId])
+}
+
+model NotificationLog {
+  id        String   @id @default(cuid())
+  listingId String
+  sentAt    DateTime @default(now())
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@index([sentAt])
+}

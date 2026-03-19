@@ -1,0 +1,13 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "npm install": true,
+        "/^node -e \"const \\{ parsePrice \\} = require\\('\\./src/utils/normalizer'\\); const samples = \\['2012 Honda civic','CA\\$4,995','Listed 15 hours ago in Toronto, ON','C\\$3,350','CAD 12000','Free','Brampton, ON'\\]; for \\(const s of samples\\) console\\.log\\(s,'=>',parsePrice\\(s\\)\\);\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^node -e 'const \\{ normalizeListing \\} = require\\(\"\\./src/utils/normalizer\"\\); const samples = \\[\\{title:\"CA\\$3,350\", price:\"CA\\$3,350\", searchableText:\"2009 Honda civic CA\\$3,350 Listed 2 days ago in Brampton, ON\"\\},\\{title:\"2009 Honda civic\", price:\"CA\\$3,350\", searchableText:\"2009 Honda civic CA\\$3,350\"\\}\\]; console\\.log\\(samples\\.map\\(normalizeListing\\)\\);'$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
