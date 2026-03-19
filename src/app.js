@@ -17,14 +17,14 @@ app.use(
             : {
                 directives: {
                     defaultSrc: ["'self'"],
-                    scriptSrc: ["'self'", "https://your-frontend.onrender.com"],
-                    connectSrc: ["'self'", "https://your-frontend.onrender.com"],
+                    scriptSrc: ["'self'", "https://deal-traking-system.onrender.com"],
+                    connectSrc: ["'self'", "https://deal-traking-system.onrender.com"],
                     imgSrc: ["'self'", "data:", "https:"],
                 },
             },
     })
 );
-app.use(cors({ origin: ['http://localhost:4000'], credentials: true }));
+app.use(cors({ origin: isDev ? 'http://localhost:4000' : "https://deal-traking-system.onrender.com", credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
