@@ -123,6 +123,9 @@ Default examples are in `.env.example`.
 - `LISTING_RETENTION_HOURS`
 - `NOTIFICATION_RETENTION_HOURS`
 
+- Facebook session
+- `ALLOW_REMOTE_FACEBOOK_LOGIN` (default: `false`)
+
 ## API Summary
 
 Base path: `/api`
@@ -165,6 +168,35 @@ Base path: `/api`
 - run migrations with `npm run prisma:deploy`
 - keep `.env` out of source control
 - use secure values for secrets and SMTP credentials
+
+## Facebook Login in Production
+
+Facebook Marketplace scraping needs a valid Playwright storage state file.
+
+### On Render (or similar managed hosts)
+
+- Interactive Facebook login (`POST /api/facebook-session/start`) is usually not supported.
+- Keep `ALLOW_REMOTE_FACEBOOK_LOGIN=false`.
+- Use one of these approaches:
+	- generate the session in a local/VPS environment and mount/provide the same `PLAYWRIGHT_STORAGE_STATE_PATH` file
+	- run the scraper on a VPS where a browser session can be created directly
+
+### On VPS
+
+Yes, you can run the command on VPS.
+
+1. SSH into your VPS and go to project folder.
+2. Run:
+
+```bash
+npm run auth:facebook
+```
+
+3. Complete Facebook login in the opened browser session.
+4. Press Enter in terminal when prompted to save.
+5. Confirm file exists at `PLAYWRIGHT_STORAGE_STATE_PATH` (default `playwright/storageState.json`).
+
+If your VPS has no desktop, use Xvfb (virtual display) or run this step once on a machine with GUI and copy the saved storage state file to the VPS.
 
 ### Render Setup
 
