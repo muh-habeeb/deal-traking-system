@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Swoop Login</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="container" style="max-width: 460px; padding-top: 50px;">
+    <div class="card">
+      <h1>Swoop Admin Login</h1>
+      <p class="small">Login to manage filters, receiver email, Facebook session, and listings.</p>
+      <form id="loginForm" method="post" action="/api/auth/login" autocomplete="off">
+        <label for="username">Username</label>
+        <input id="username" name="username" required />
+        <label for="password" style="margin-top: 12px;">Password</label>
+        <input id="password" name="password" type="password" required />
+        <button type="submit" style="margin-top: 16px;">Login</button>
+      </form>
+      <div id="notice" class="notice"></div>
+      <p class="small" style="margin-top: 14px;">Use APP_LOGIN_USERNAME and APP_LOGIN_PASSWORD from your env.</p>
+    </div>
+  </div>
+
+  <script src="/login.js"></script>
+</body>
+</html>

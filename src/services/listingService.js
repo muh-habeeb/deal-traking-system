@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const { normalizeListingUrl } = require('../utils/normalizer');
 
 async function getRecentListings(limit = 50) {
   return prisma.listing.findMany({
@@ -13,6 +14,31 @@ async function findExistingListingByUrl(url) {
   }
 
   return prisma.listing.findUnique({ where: { url } });
+}
+
+async function findExistingListingByIdentity({ url, externalId }) {
+  const normalizedUrl = normalizeListingUrl(url);
+  if (!normalizedUrl && !externalId) {
+    return null;
+  }
+
+  const identityClauses = [];
+
+  if (externalId) {
+    identityClauses.push({ externalId });
+  }
+
+  if (normalizedUrl) {
+    identityClauses.push({ url: normalizedUrl });
+    identityClauses.push({ url: { startsWith: `${normalizedUrl}?` } });
+  }
+
+  return prisma.listing.findFirst({
+    where: {
+      OR: identityClauses,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
 }
 
 async function createListing(data) {
@@ -44,6 +70,7 @@ async function updateListing(id, data) {
 module.exports = {
   getRecentListings,
   findExistingListingByUrl,
+  findExistingListingByIdentity,
   createListing,
   updateListing,
 };

@@ -1,9 +1,19 @@
 const prisma = require('../config/prisma');
+const env = require('../config/env');
 const { scrapeByFilter } = require('../scrapers/facebookMarketplaceScraper');
 const { getAllFilterConfigs } = require('./filterService');
-const { findExistingListingByUrl, createListing, updateListing } = require('./listingService');
+const { findExistingListingByIdentity, createListing, updateListing } = require('./listingService');
 const { sendNewListingAlert } = require('./emailService');
+const { cleanupOldData } = require('./cleanupService');
 const logger = require('../utils/logger');
+
+function wait(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function tokenizeKeyword(keyword) {
   return String(keyword || '')
@@ -45,6 +55,32 @@ function shouldRepairExisting(existing, incoming) {
   return titleUpgrade || priceUpgrade || locationUpgrade || imageUpgrade;
 }
 
+async function hasNotificationMarker(listingIdentity) {
+  const clauses = [];
+
+  if (listingIdentity.externalId) {
+    clauses.push({ listing: { externalId: listingIdentity.externalId } });
+  }
+
+  if (listingIdentity.url) {
+    clauses.push({ listing: { url: listingIdentity.url } });
+    clauses.push({ listing: { url: { startsWith: `${listingIdentity.url}?` } } });
+  }
+
+  if (clauses.length === 0) {
+    return false;
+  }
+
+  const existingLog = await prisma.notificationLog.findFirst({
+    where: {
+      OR: clauses,
+    },
+    orderBy: { sentAt: 'desc' },
+  });
+
+  return Boolean(existingLog);
+}
+
 async function processFilter(filterConfig) {
   const scrapedListings = await scrapeByFilter(filterConfig);
   const freshListings = [];
@@ -60,7 +96,10 @@ async function processFilter(filterConfig) {
       continue;
     }
 
-    const existing = await findExistingListingByUrl(scraped.url);
+    const existing = await findExistingListingByIdentity({
+      url: scraped.url,
+      externalId: scraped.externalId,
+    });
     if (existing) {
       if (shouldRepairExisting(existing, scraped)) {
         await updateListing(existing.id, scraped);
@@ -76,6 +115,20 @@ async function processFilter(filterConfig) {
     freshListings.push(created);
 
     try {
+      const alreadyNotified = await hasNotificationMarker({
+        url: created.url,
+        externalId: created.externalId,
+      });
+
+      if (alreadyNotified) {
+        logger.info('Skipping email: marker exists for listing identity', {
+          listingId: created.id,
+          url: created.url,
+          externalId: created.externalId,
+        });
+        continue;
+      }
+
       await sendNewListingAlert(created);
       await prisma.notificationLog.create({
         data: { listingId: created.id },
@@ -86,6 +139,8 @@ async function processFilter(filterConfig) {
         error: error.message,
       });
     }
+
+    await wait(env.notificationDelayMs);
   }
 
   logger.info('Filter processing completed', {
@@ -102,6 +157,7 @@ async function runDealScan() {
   const filters = await getAllFilterConfigs();
 
   if (filters.length === 0) {
+    await cleanupOldData();
     logger.info('No filters configured. Skipping scan run.');
     return { scannedFilters: 0, newListings: 0 };
   }
@@ -115,6 +171,8 @@ async function runDealScan() {
       logger.error('Filter scan failed', { filterId: filter.id, error: error.message });
     }
   }
+
+  await cleanupOldData();
 
   return {
     scannedFilters: filters.length,

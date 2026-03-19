@@ -8,6 +8,22 @@
         "/^node -e 'const \\{ normalizeListing \\} = require\\(\"\\./src/utils/normalizer\"\\); const samples = \\[\\{title:\"CA\\$3,350\", price:\"CA\\$3,350\", searchableText:\"2009 Honda civic CA\\$3,350 Listed 2 days ago in Brampton, ON\"\\},\\{title:\"2009 Honda civic\", price:\"CA\\$3,350\", searchableText:\"2009 Honda civic CA\\$3,350\"\\}\\]; console\\.log\\(samples\\.map\\(normalizeListing\\)\\);'$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^node -e \"\\(async\\(\\)=>\\{const r=await fetch\\('http://localhost:4000/api/filters/cmmx8vbjd0000p0dda8n69xns'\\); console\\.log\\('status',r\\.status\\); console\\.log\\(await r\\.text\\(\\)\\);\\}\\)\\(\\)\\.catch\\(e=>console\\.error\\(e\\.message\\)\\);\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^node -e \"\\(async\\(\\)=>\\{const login=await fetch\\('http://localhost:4000/api/auth/login',\\{method:'POST',headers:\\{'Content-Type':'application/json'\\},body:JSON\\.stringify\\(\\{username:'admin',password:'admin123'\\}\\)\\}\\); const body=await login\\.json\\(\\); console\\.log\\('login',login\\.status, !!body\\.token\\); if\\(!body\\.token\\) return; const token=body\\.token; const headers=\\{Authorization:`Bearer \\$\\{token\\}`\\}; const a=await fetch\\('http://localhost:4000/api/listings',\\{headers\\}\\); console\\.log\\('listings',a\\.status\\); console\\.log\\(await a\\.text\\(\\)\\); const b=await fetch\\('http://localhost:4000/api/filters',\\{headers\\}\\); console\\.log\\('filters',b\\.status\\); console\\.log\\(await b\\.text\\(\\)\\); const c=await fetch\\('http://localhost:4000/api/filters/cmmx8vbjd0000p0dda8n69xns',\\{headers\\}\\); console\\.log\\('filterById',c\\.status\\); console\\.log\\(await c\\.text\\(\\)\\);\\}\\)\\(\\)\\.catch\\(e=>console\\.error\\(e\\)\\);\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^node -e ' \\(async\\(\\)=>\\{ const login=await fetch\\(\"http://localhost:4000/api/auth/login\",\\{method:\"POST\",headers:\\{\"Content-Type\":\"application/json\"\\},body:JSON\\.stringify\\(\\{username:\"admin\",password:\"admin123\"\\}\\)\\}\\); const body=await login\\.json\\(\\); console\\.log\\(\"login\",login\\.status,!!body\\.token\\); if\\(!body\\.token\\) return; const headers=\\{Authorization:\"Bearer \"\\+body\\.token\\}; const a=await fetch\\(\"http://localhost:4000/api/listings\",\\{headers\\}\\); console\\.log\\(\"listings\",a\\.status\\); console\\.log\\(await a\\.text\\(\\)\\); const b=await fetch\\(\"http://localhost:4000/api/filters\",\\{headers\\}\\); console\\.log\\(\"filters\",b\\.status\\); console\\.log\\(await b\\.text\\(\\)\\); const c=await fetch\\(\"http://localhost:4000/api/filters/cmmx8vbjd0000p0dda8n69xns\",\\{headers\\}\\); console\\.log\\(\"filterById\",c\\.status\\); console\\.log\\(await c\\.text\\(\\)\\); \\}\\)\\(\\)\\.catch\\(e=>console\\.error\\(e\\)\\);'$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^node -e 'const prisma=require\\(\"\\./src/config/prisma\"\\); \\(async\\(\\)=>\\{ try\\{ const l=await prisma\\.listing\\.findMany\\(\\{take:1\\}\\); console\\.log\\(\"listing-ok\",l\\.length\\); const f=await prisma\\.filterConfig\\.findMany\\(\\{take:1\\}\\); console\\.log\\(\"filter-ok\",f\\.length\\);\\} finally \\{ await prisma\\.\\$disconnect\\(\\); \\} \\}\\)\\(\\)\\.catch\\(e=>\\{ console\\.error\\(e\\); process\\.exit\\(1\\); \\}\\);'$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

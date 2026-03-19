@@ -1,17 +1,20 @@
 const nodemailer = require('nodemailer');
 const env = require('../config/env');
 const logger = require('../utils/logger');
+const { getReceiverEmail } = require('./settingsService');
 
 let hasVerifiedTransport = false;
 
 function assertEmailConfig() {
+  const receiverEmail = getReceiverEmail();
+
   const required = [
     ['SMTP_HOST', env.smtp.host],
     ['SMTP_PORT', env.smtp.port],
     ['SMTP_USER', env.smtp.user],
     ['SMTP_PASS', env.smtp.pass],
     ['ALERT_FROM', env.alertFrom],
-    ['ALERT_TO', env.alertTo],
+    ['ALERT_TO', receiverEmail],
   ];
 
   const missing = required
@@ -71,10 +74,11 @@ async function verifyEmailTransport() {
 
 async function sendNewListingAlert(listing) {
   assertEmailConfig();
+  const receiverEmail = getReceiverEmail();
 
   const message = {
     from: env.alertFrom,
-    to: env.alertTo,
+    to: receiverEmail,
     subject: `New Marketplace Deal: ${listing.title}`,
     html: formatListingHtml(listing),
     text: formatListingText(listing),
@@ -103,10 +107,11 @@ async function sendNewListingAlert(listing) {
 async function sendTestEmail() {
   assertEmailConfig();
   await verifyEmailTransport();
+  const receiverEmail = getReceiverEmail();
 
   const message = {
     from: env.alertFrom,
-    to: env.alertTo,
+    to: receiverEmail,
     subject: 'Deal Tracker Email Test',
     text: 'This is a test email from your Deal Tracker backend.',
     html: '<p>This is a test email from your Deal Tracker backend.</p>',

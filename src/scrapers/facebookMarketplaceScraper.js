@@ -63,7 +63,7 @@ async function scrapeByFilter(filterConfig) {
         return (
           /^listed\s+/i.test(line) ||
           /^seller'?s description/i.test(line) ||
-          /^location is approximat/i.test(line) ||
+          /^location is approximate/i.test(line) ||
           /^ships to you/i.test(line) ||
           /^delivery available/i.test(line)
         );

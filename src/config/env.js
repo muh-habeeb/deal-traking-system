@@ -8,6 +8,9 @@ const env = {
   databaseUrl: process.env.DATABASE_URL,
   scrapeCron: process.env.SCRAPE_CRON || '*/10 * * * *',
   maxListingsPerFilter: Number(process.env.MAX_LISTINGS_PER_FILTER || 30),
+  listingRetentionHours: Number(process.env.LISTING_RETENTION_HOURS || 24),
+  notificationRetentionHours: Number(process.env.NOTIFICATION_RETENTION_HOURS || 12),
+  notificationDelayMs: Number(process.env.NOTIFICATION_DELAY_MS || 2500),
   playwrightHeadless: process.env.PLAYWRIGHT_HEADLESS !== 'false',
   playwrightBaseUrl: process.env.PLAYWRIGHT_BASE_URL || 'https://www.facebook.com/marketplace',
   playwrightStorageStatePath:
@@ -21,6 +24,11 @@ const env = {
   },
   alertFrom: process.env.ALERT_FROM,
   alertTo: process.env.ALERT_TO,
+  appAuthSecret: process.env.APP_AUTH_SECRET || 'change-me-in-production',
+  appLogin: {
+    username: process.env.APP_LOGIN_USERNAME || 'admin',
+    password: process.env.APP_LOGIN_PASSWORD || 'admin123',
+  },
 };
 
 module.exports = env;

@@ -1,170 +1,171 @@
-# Swoop Deal Tracker Backend
+# Swoop
 
-Production-ready backend for scraping Facebook Marketplace with Playwright, storing listings in PostgreSQL via Prisma, and sending email alerts for new matching deals.
+Swoop is a Facebook Marketplace deal tracker with an admin UI.
 
-## Architecture
+It lets you:
+- create and manage search filters (keyword, location, min/max price)
+- scrape new listings on a schedule
+- deduplicate listings by URL
+- send email alerts for new matches
+- manage Facebook login session from the dashboard
 
-- Runtime: Node.js + Express (REST)
-- Scraping: Playwright
-- ORM: Prisma
-- Database: PostgreSQL
-- Scheduler: node-cron
-- Notifications: Nodemailer
+## Tech Stack
 
-## Folder Structure
+- Node.js + Express
+- Prisma 7 + PostgreSQL
+- Playwright (Marketplace scraping)
+- Nodemailer (email notifications)
+- Static web UI (login + dashboard)
 
-```
-swoop/
-  prisma.config.ts
-  prisma/
-    schema.prisma
-  playwright/
-    .gitkeep
-  src/
-    app.js
-    server.js
-    config/
-      env.js
-      prisma.js
-    controllers/
-      filterController.js
-      listingController.js
-    jobs/
-      scrapeJob.js
-    models/
-      index.js
-    routes/
-      index.js
-      filterRoutes.js
-      listingRoutes.js
-    scrapers/
-      facebookMarketplaceScraper.js
-    scripts/
-      saveFacebookAuthState.js
-    services/
-      dealService.js
-      emailService.js
-      filterService.js
-      listingService.js
-    utils/
-      logger.js
-      normalizer.js
-      urlBuilder.js
-  .env.example
-  .gitignore
-  package.json
-```
+## Quick Start
 
-## Prisma Data Model
-
-- `User` (optional, supports future multi-user growth)
-- `FilterConfig` (keyword, location, min/max price)
-- `Listing` (unique `url`, normalized listing data)
-- `NotificationLog` (tracks delivered alerts)
-
-Key constraints and indexes:
-- `Listing.url` is unique for dedupe
-- Indexed fields on filter/search and time columns (`createdAt`, `keyword`, `location`, `price`)
-- Relation `NotificationLog -> Listing` with cascade delete
-
-## Setup
-
-1. Install dependencies:
+1. Install dependencies
 
 ```bash
 npm install
 ```
 
-2. Copy environment file:
+2. Create `.env` from sample
 
-```bash
-cp .env.example .env
-```
-
-On Windows PowerShell:
+PowerShell:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-3. Update `.env` values:
+macOS/Linux:
+
+```bash
+cp .env.example .env
+```
+
+3. Update key environment values in `.env`
+
 - `DATABASE_URL`
-- SMTP credentials (`SMTP_*`, `ALERT_FROM`, `ALERT_TO`)
-- Scrape schedule (`SCRAPE_CRON`)
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`
+- `ALERT_FROM`, `ALERT_TO`
+- `APP_LOGIN_USERNAME`, `APP_LOGIN_PASSWORD`
+- `APP_AUTH_SECRET`
 
-Prisma 7 note:
-- Migration connection URL is read from `prisma.config.ts` (not from `datasource.url` in schema)
-- Runtime database connection uses `PrismaClient({ adapter })` with `@prisma/adapter-pg`
-
-4. Generate Prisma client and migrate DB:
+4. Prepare database
 
 ```bash
 npm run prisma:generate
 npm run prisma:migrate
 ```
 
-5. Save Facebook login session for Playwright:
-
-```bash
-npm run auth:facebook
-```
-
-This opens a browser. Log in manually, then press Enter in terminal to save `playwright/storageState.json`.
-
-6. Start service:
+5. Start the app
 
 ```bash
 npm run dev
 ```
 
-## API Endpoints
+6. Open UI
 
-Base URL: `http://localhost:4000/api`
+- Login page: `http://localhost:4000/`
+- Dashboard: `http://localhost:4000/dashboard`
 
-1. Create filter
-- `POST /filters`
-- Body:
+## Run Commands
 
-```json
-{
-  "keyword": "honda civic",
-  "location": "toronto",
-  "minPrice": 2000,
-  "maxPrice": 12000
-}
-```
+- Dev server: `npm run dev`
+- Production start: `npm run start`
+- Generate Prisma client: `npm run prisma:generate`
+- Create/apply migration (development): `npm run prisma:migrate`
+- Reset database (development only): `npm run prisma:reset`
+- Apply migrations (deployment): `npm run prisma:deploy`
+- Legacy session script: `npm run auth:facebook`
 
-2. Get filters
-- `GET /filters`
+## UI Workflow (Recommended)
 
-3. Get listings
-- `GET /listings?limit=50`
+1. Login with `APP_LOGIN_USERNAME` and `APP_LOGIN_PASSWORD`
+2. In **Receiver Email**, save the destination email and send a test email
+3. In **Facebook Session**:
+- click **Start Facebook Login**
+- complete Facebook login in the opened browser
+- return and click **Save Session**
+4. Create at least one filter
+5. Verify new listings in **Latest Listings**
 
-4. Health check
+The scraper runs automatically on the cron schedule in `SCRAPE_CRON` (default every 10 minutes).
+
+## Environment Variables
+
+Default examples are in `.env.example`.
+
+- App
+- `NODE_ENV` (default: `development`)
+- `PORT` (default: `4000`)
+- `APP_AUTH_SECRET`
+- `APP_LOGIN_USERNAME`
+- `APP_LOGIN_PASSWORD`
+
+- Database
+- `DATABASE_URL`
+
+- Scraping
+- `SCRAPE_CRON`
+- `MAX_LISTINGS_PER_FILTER`
+- `PLAYWRIGHT_HEADLESS`
+- `PLAYWRIGHT_BASE_URL`
+- `PLAYWRIGHT_STORAGE_STATE_PATH`
+
+- Notification
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `ALERT_FROM`
+- `ALERT_TO`
+- `NOTIFICATION_DELAY_MS`
+
+- Data retention
+- `LISTING_RETENTION_HOURS`
+- `NOTIFICATION_RETENTION_HOURS`
+
+## API Summary
+
+Base path: `/api`
+
+- Public
+- `POST /auth/login`
 - `GET /health`
 
-## Scraping + Detection Flow
+- Protected (Bearer token)
+- `GET /auth/me`
+- `GET/POST/PUT/DELETE /filters`
+- `GET /listings`
+- `PUT /settings/email`
+- `POST /notifications/test`
+- `GET /facebook-session/status`
+- `POST /facebook-session/start`
+- `POST /facebook-session/save`
+- `POST /facebook-session/logout`
 
-1. Cron triggers `runDealScan()` every `SCRAPE_CRON` interval (default every 10 minutes)
-2. Loads all filter configs
-3. Builds Facebook Marketplace search URL per filter
-4. Scrapes result cards with Playwright
-5. Normalizes listing fields (`title`, `price`, `location`, `url`, `image`)
-6. Dedupes against DB by unique `url`
-7. Persists unseen listings
-8. Sends email alert for each new listing
-9. Writes `NotificationLog`
+## Troubleshooting
 
-## Reliability Notes
+- Port already in use
+- change `PORT` in `.env` or stop the process using port `4000`
 
-- Structured error handling in controllers/services
-- Cron expression validation before scheduling
-- Prisma connect/disconnect lifecycle management
-- Deduplication at both service logic and DB unique constraint levels
+- `npm run dev` exits early
+- confirm PostgreSQL is running
+- verify `DATABASE_URL` and run `npm run prisma:migrate`
 
-## Deployment Notes (VPS)
+- No email received
+- check SMTP credentials and `ALERT_TO`
+- use **Send Test Email** in dashboard and inspect server logs
 
-- Use PM2 or systemd to run `npm run start`
-- Run `npm run prisma:deploy` during deployment
-- Keep `.env` outside source control
-- Rotate SMTP credentials and use app passwords when required by provider
+- Facebook session not ready
+- complete login in the popup browser before saving session
+- confirm `playwright/storageState.json` is created/updated
+
+## Notes for Deployment
+
+- run with `npm run start`
+- run migrations with `npm run prisma:deploy`
+- keep `.env` out of source control
+- use secure values for secrets and SMTP credentials
+
+## Additional Documentation
+
+For a client-friendly UI usage guide, see `docs/CLIENT_UI_GUIDE.md`.

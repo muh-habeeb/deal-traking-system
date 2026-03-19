@@ -32,6 +32,27 @@ function parsePrice(value) {
   return Number(numeric);
 }
 
+function normalizeListingUrl(value) {
+  if (!value) {
+    return null;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(raw);
+    const normalizedPath = parsed.pathname.endsWith('/')
+      ? parsed.pathname.slice(0, -1)
+      : parsed.pathname;
+    return `${parsed.origin}${normalizedPath}`;
+  } catch (_error) {
+    return raw;
+  }
+}
+
 function isLikelyPriceText(value) {
   if (!value) {
     return false;
@@ -94,7 +115,7 @@ function normalizeListing(raw) {
     title: pickTitle(raw),
     price: parsePrice(raw.price),
     location: raw.location ? raw.location.trim() : null,
-    url: raw.url ? raw.url.trim() : null,
+    url: normalizeListingUrl(raw.url),
     image: raw.image ? raw.image.trim() : null,
     externalId: raw.externalId ? raw.externalId.trim() : null,
     searchableText: raw.searchableText ? raw.searchableText.trim() : '',
@@ -103,5 +124,6 @@ function normalizeListing(raw) {
 
 module.exports = {
   parsePrice,
+  normalizeListingUrl,
   normalizeListing,
 };
