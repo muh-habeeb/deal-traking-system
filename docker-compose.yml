@@ -1,0 +1,62 @@
+services:
+  db:
+    profiles: ["localdb"]
+    image: postgres:16
+    container_name: swoop-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: deals_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - swoop_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d deals_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: swoop-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: "${DATABASE_URL}"
+      SCRAPE_CRON: "*/10 * * * *"
+      RUN_SCAN_ON_BOOT: "true"
+      MAX_LISTINGS_PER_FILTER: "30"
+      LISTING_RETENTION_HOURS: "24"
+      NOTIFICATION_RETENTION_HOURS: "12"
+      NOTIFICATION_DELAY_MS: "2500"
+      PLAYWRIGHT_HEADLESS: "true"
+      ALLOW_REMOTE_FACEBOOK_LOGIN: "false"
+      PLAYWRIGHT_BASE_URL: https://www.facebook.com/marketplace
+      PLAYWRIGHT_STORAGE_STATE_PATH: /app/playwright/storageState.json
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: "587"
+      SMTP_SECURE: "true"
+      SMTP_USER: change-me@example.com
+      SMTP_PASS: change-me
+      ALERT_FROM: Deal Tracker <change-me@example.com>
+      ALERT_TO: change-me@example.com
+      APP_AUTH_SECRET: change-this-long-secret
+      APP_LOGIN_USERNAME: admin
+      APP_LOGIN_PASSWORD: admin123
+      NODE_OPTIONS: --dns-result-order=ipv4first
+    ports:
+      # - "4000:4000"
+      - "80:4000"
+      - "443:4000"
+    volumes:
+      - ./playwright:/app/playwright
+      - ./data:/app/data
+
+volumes:
+  swoop_pg_data:

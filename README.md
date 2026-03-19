@@ -38,6 +38,10 @@ macOS/Linux:
 ```bash
 cp .env.example .env
 ```
+downlod playwitr 
+```bash
+npx playwright install --with-deps chromium
+```
 
 3. Update key environment values in `.env`
 
@@ -74,6 +78,66 @@ npm run dev
 - Reset database (development only): `npm run prisma:reset`
 - Apply migrations (deployment): `npm run prisma:deploy`
 - Legacy session script: `npm run auth:facebook`
+
+## Docker (Compose)
+
+This repository includes a Docker setup optimized for:
+- Playwright Chromium runtime dependencies
+- Persistent PostgreSQL storage via named volume
+- Persistent app runtime data via bind mounts (`playwright/`, `data/`)
+
+### Files
+
+- `Dockerfile`
+- `docker-compose.yml`
+- `.dockerignore`
+- `docker-compose.override.example.yml`
+
+### Quick commands
+
+```bash
+npm run docker:build
+npm run docker:up
+npm run docker:logs
+```
+
+Stop containers:
+
+```bash
+npm run docker:down
+```
+
+Stop and remove database volume (destructive):
+
+```bash
+npm run docker:down:volumes
+```
+
+Run migration inside container:
+
+```bash
+npm run docker:migrate
+```
+
+### Data and chunk management
+
+- PostgreSQL data is stored in volume `swoop_pg_data`
+- App keeps runtime files in mounted folders:
+	- `playwright/` for storage state
+	- `data/` for runtime settings
+- Listing and notification cleanup is still controlled by:
+	- `LISTING_RETENTION_HOURS`
+	- `NOTIFICATION_RETENTION_HOURS`
+
+### Override secrets safely
+
+Copy and customize override file:
+
+```bash
+cp docker-compose.override.example.yml docker-compose.override.yml
+```
+
+Set real SMTP/app credentials in `docker-compose.override.yml` before running in production.
 
 ## UI Workflow (Recommended)
 
