@@ -27,10 +27,10 @@ services:
     container_name: swoop-app
     restart: unless-stopped
     environment:
-      NODE_ENV: production
-      PORT: 4000
+      NODE_ENV: "${NODE_ENV:-production}"
+      PORT: "4000"
       DATABASE_URL: "${DATABASE_URL}"
-      SCRAPE_CRON: "*/10 * * * *"
+      SCRAPE_CRON: "${SCRAPE_CRON}"
       RUN_SCAN_ON_BOOT: "false"
       MAX_LISTINGS_PER_FILTER: "30"
       LISTING_RETENTION_HOURS: "24"
@@ -38,26 +38,26 @@ services:
       NOTIFICATION_DELAY_MS: "2500"
       PLAYWRIGHT_HEADLESS: "true"
       ALLOW_REMOTE_FACEBOOK_LOGIN: "true"
-      PLAYWRIGHT_BASE_URL: https://www.facebook.com/marketplace
-      PLAYWRIGHT_STORAGE_STATE_PATH: /app/playwright/storageState.json
+      PLAYWRIGHT_BASE_URL: "https://www.facebook.com/marketplace"
+      PLAYWRIGHT_STORAGE_STATE_PATH: "/app/playwright/storageState.json"
       PLAYWRIGHT_EXECUTABLE_PATH: ""
-      PLAYWRIGHT_BROWSER_ARGS: --no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage
+      PLAYWRIGHT_BROWSER_ARGS: "--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage"
       DISPLAY: ":99"
-      XVFB_SCREEN: 1366x768x24
+      XVFB_SCREEN: "1366x768x24"
       VNC_PORT: "5900"
       NOVNC_PORT: "6080"
-      VNC_PASSWORD: change-this-vnc-password
-      SMTP_HOST: smtp.gmail.com
+      VNC_PASSWORD: "${VNC_PASSWORD}"
+      SMTP_HOST: "smtp.gmail.com"
       SMTP_PORT: "587"
       SMTP_SECURE: "true"
-      SMTP_USER: muhammadhabeebrahmam@gmail.com
-      SMTP_PASS: ycfhumiswgedmlfc
-      ALERT_FROM: Deal Tracker <muhammadhabeebrahmam@gmail.com>
-      ALERT_TO: muhammadhabeebrahmam@gmail.com
-      APP_AUTH_SECRET: change-this-long-secret
-      APP_LOGIN_USERNAME: admin
-      APP_LOGIN_PASSWORD: admin123
-      NODE_OPTIONS: --dns-result-order=ipv4first
+      SMTP_USER: "${SMTP_USER}"
+      SMTP_PASS: "${SMTP_PASS}"
+      ALERT_FROM: "${ALERT_FROM}"
+      ALERT_TO: "${ALERT_TO}"
+      APP_AUTH_SECRET: "${APP_AUTH_SECRET:-1231hi32123}"
+      APP_LOGIN_USERNAME: "${APP_LOGIN_USERNAME:-admin}"
+      APP_LOGIN_PASSWORD: "${APP_LOGIN_PASSWORD:-admin123}"
+      NODE_OPTIONS: "--dns-result-order=ipv4first"
     ports:
       # - "4000:4000"
       - "8080:4000"
