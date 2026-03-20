@@ -30,7 +30,7 @@ services:
       PORT: 4000
       DATABASE_URL: "${DATABASE_URL}"
       SCRAPE_CRON: "*/10 * * * *"
-      RUN_SCAN_ON_BOOT: "true"
+      RUN_SCAN_ON_BOOT: "false"
       MAX_LISTINGS_PER_FILTER: "30"
       LISTING_RETENTION_HOURS: "24"
       NOTIFICATION_RETENTION_HOURS: "12"

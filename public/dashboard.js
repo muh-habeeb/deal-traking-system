@@ -309,16 +309,30 @@ async function loadListings() {
         const listings = await api('/api/listings?limit=40');
         tbody.innerHTML = '';
 
+        function formatCreatedAt(listing) {
+            const raw = listing.createdAt || listing.created_at || listing.created || null;
+            if (!raw) {
+                return 'N/A';
+            }
+
+            const date = new Date(raw);
+            if (Number.isNaN(date.getTime())) {
+                return 'N/A';
+            }
+
+            return date.toLocaleString('en-US', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+            });
+        }
+
         for (const listing of listings) {
             const tr = document.createElement('tr');
             tr.innerHTML = `
         <td>${listing.title || 'N/A'}</td>
         <td>${listing.price !== null && listing.price !== undefined ? `CA$${listing.price}` : 'N/A'}</td>
         <td>${listing.location || 'N/A'}</td>
-        <td>${listing.createdAt ? new Date(listing.createdAt).toLocaleString("en-US", {
-                dateStyle: "medium",
-                timeStyle: "short"
-            }) : 'N/A'}</td>
+        <td>${formatCreatedAt(listing)}</td>
         <td><a href="${listing.url}" target="_blank" rel="noopener noreferrer">Open</a></td>
       `;
             tbody.appendChild(tr);
