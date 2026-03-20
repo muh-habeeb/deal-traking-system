@@ -1,24 +1,24 @@
+# services:
+#   db:
+#     profiles: ["localdb"]
+#     image: postgres:16
+#     container_name: swoop-db
+#     restart: unless-stopped
+#     environment:
+#       POSTGRES_DB: deals_db
+#       POSTGRES_USER: postgres
+#       POSTGRES_PASSWORD: postgres
+#       PGDATA: /var/lib/postgresql/data/pgdata
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - swoop_pg_data:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U postgres -d deals_db"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 10
 services:
-  db:
-    profiles: ["localdb"]
-    image: postgres:16
-    container_name: swoop-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: deals_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - "5432:5432"
-    volumes:
-      - swoop_pg_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d deals_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
   app:
     build:
       context: .
@@ -38,6 +38,7 @@ services:
       NOTIFICATION_DELAY_MS: "2500"
       PLAYWRIGHT_HEADLESS: "true"
       ALLOW_REMOTE_FACEBOOK_LOGIN: "true"
+      NO_VNC_PUBLIC_URL: ${NO_VNC_PUBLIC_URL:-http://localhost:6080/vnc.html}
       PLAYWRIGHT_BASE_URL: "https://www.facebook.com/marketplace"
       PLAYWRIGHT_STORAGE_STATE_PATH: "/app/playwright/storageState.json"
       PLAYWRIGHT_EXECUTABLE_PATH: ""
@@ -61,6 +62,7 @@ services:
     ports:
       # - "4000:4000"
       - "8080:4000"
+      - "6080:6080"
 
       # - "80:4000" by nginex  proxy and certbot 
       # - "443:4000"
@@ -68,5 +70,5 @@ services:
       - ./playwright:/app/playwright
       - ./data:/app/data
 
-volumes:
-  swoop_pg_data:
+# volumes:
+#   swoop_pg_data:

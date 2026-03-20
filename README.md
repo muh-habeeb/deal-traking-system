@@ -1,23 +1,24 @@
 # Swoop
 
-Swoop is a Facebook Marketplace deal tracker with admin dashboard, category-aware filters, Playwright scraping, and email alerts.
+Swoop is a Facebook Marketplace vehicle-deal tracking backend with an admin UI, scheduled scraping, deduplication, and email alerts.
 
-## Features
+## What It Does
 
-- Filter CRUD with keyword, location, category, min/max price
-- Facebook category search support (vehicles, property, electronics, etc.)
-- Scheduled scraping with dedupe and notification logs
-- Admin dashboard for filter management, listings, and session management
-- Facebook session workflows for local, hosted popup (noVNC), and JSON import
+- Manages search filters (`keyword`, `location`, `minPrice`, `maxPrice`)
+- Scrapes recent Facebook Marketplace vehicle listings on a schedule
+- Stores and deduplicates listings in PostgreSQL
+- Sends email notifications for newly discovered listings
+- Provides session tools for Facebook login state (local or hosted/noVNC)
 
-## Stack
+## Tech Stack
 
-- Node.js + Express
-- Prisma 7 + PostgreSQL (local or Neon)
-- Playwright
-- Nodemailer
+- Node.js + Express 5
+- Prisma 7 + PostgreSQL
+- Playwright (Marketplace scraping)
+- Nodemailer (SMTP alerts)
+- node-cron (scheduled scans)
 
-## Quick Start
+## Quick Start (Local)
 
 1. Install dependencies
 
@@ -25,28 +26,33 @@ Swoop is a Facebook Marketplace deal tracker with admin dashboard, category-awar
 npm install
 ```
 
-2. Create env file
+2. Create environment file
 
 ```bash
 cp .env.example .env
 ```
 
-3. Set required env values in `.env`
+3. Configure required values in `.env`
 
 - `DATABASE_URL`
 - `APP_AUTH_SECRET`
-- `APP_LOGIN_USERNAME`, `APP_LOGIN_PASSWORD`
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`
-- `ALERT_FROM`, `ALERT_TO`
+- `APP_LOGIN_USERNAME`
+- `APP_LOGIN_PASSWORD`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `ALERT_FROM`
+- `ALERT_TO`
 
-4. Generate client and run migrations
+4. Generate Prisma client and run migrations
 
 ```bash
 npm run prisma:generate
 npm run prisma:migrate
 ```
 
-5. Run app
+5. Start the app
 
 ```bash
 npm run dev
@@ -54,8 +60,8 @@ npm run dev
 
 Open:
 
-- `http://localhost:4000/`
-- `http://localhost:4000/dashboard`
+- `http://localhost:4000/` (login page)
+- `http://localhost:4000/dashboard` (admin dashboard)
 
 ## Docker Quick Start
 
@@ -65,25 +71,37 @@ npm run docker:up
 npm run docker:logs
 ```
 
-## Main Scripts
-
-- `npm run dev`
-- `npm run start`
-- `npm run prisma:generate`
-- `npm run prisma:migrate`
-- `npm run prisma:deploy`
-- `npm run auth:facebook`
-
-## API Snapshot
+## API Overview
 
 Base path: `/api`
 
-- Public: `POST /auth/login`, `GET /health`
-- Protected: `GET /auth/me`, `GET/POST/PUT/DELETE /filters`, `GET /listings`, `PUT /settings/email`, `POST /notifications/test`
-- Facebook session: `GET /facebook-session/status`, `POST /facebook-session/start`, `POST /facebook-session/save`, `POST /facebook-session/import`, `POST /facebook-session/logout`
+- Public routes: `GET /health`, `POST /auth/login`
+- Token route: `GET /auth/me` (requires `Authorization: Bearer <token>`)
+- Protected routes: filters, listings, notifications, settings, facebook-session
 
-## Documentation
+Full API guide: [docs/API_REFERENCE.md](docs/API_REFERENCE.md)
 
+## Key Runtime Behavior
+
+- Cron scan uses `SCRAPE_CRON` (default: every 10 minutes)
+- Optional scan on boot controlled by `RUN_SCAN_ON_BOOT`
+- New listing alerts are delayed by `NOTIFICATION_DELAY_MS` between sends
+- Old listings/notification logs are cleaned up after each scan cycle
+
+## NPM Scripts
+
+- `npm run dev` - start server with nodemon
+- `npm run start` - start production server
+- `npm run auth:facebook` - run Facebook auth-state helper script
+- `npm run prisma:generate` - generate Prisma client
+- `npm run prisma:migrate` - run local Prisma migrations
+- `npm run prisma:deploy` - run production-safe Prisma migrations
+- `npm run docker:build` / `docker:up` / `docker:down` / `docker:logs`
+
+## Project Documentation
+
+- [docs/README.md](docs/README.md)
+- [docs/API_REFERENCE.md](docs/API_REFERENCE.md)
 - [docs/CLIENT_UI_GUIDE.md](docs/CLIENT_UI_GUIDE.md)
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 - [docs/FACEBOOK_SESSION.md](docs/FACEBOOK_SESSION.md)

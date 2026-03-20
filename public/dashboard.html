@@ -28,17 +28,20 @@
       <section class="card">
         <h2>Facebook Session</h2>
         <div id="sessionStatus" class="notice">Checking...</div>
+        <div id="sessionLoading" class="notice" style="display:none;">
+          <span class="spinner" style="display:inline-block;width:14px;height:14px;border:2px solid #d9c8a9;border-top-color:#1f7a8c;border-radius:50%;vertical-align:middle;animation: spin .8s linear infinite;"></span>
+          <span id="sessionLoadingText" style="margin-left:8px;">Working...</span>
+        </div>
         <p class="small" id="info">Click Start Facebook Login, then open Login Screen and sign in. Session is auto-saved after successful login.</p>
         <div class="row" style="margin-top: 10px;">
           <button id="startSessionBtn">Start Facebook Login</button>
           <button id="openSessionViewerBtn" class="secondary" style="display: none;">Open Login Screen</button>
         </div>
         <div id="sessionViewerWrap" style="display: none; margin-top: 12px;">
-          <iframe id="sessionViewerFrame" title="Facebook Login Screen" style="width: 100%; min-height: 480px; border: 1px solid #d9c8a9; border-radius: 10px; background: #fff;" referrerpolicy="no-referrer"></iframe>
+          <iframe id="sessionViewerFrame" title="Facebook Login Screen" style="width: 100%; min-height: 480px; border: 1px solid #d9c8a9; border-radius: 10px; background: #fff;" referrerpolicy="no-referrer" allow="fullscreen" allowfullscreen></iframe>
         </div>
         <div class="row" style="margin-top: 10px;">
           <button id="refreshSessionBtn" class="secondary">Refresh Session Status</button>
-          <button id="logoutSessionBtn" class="secondary">Logout Facebook</button>
         </div>
       </section>
     </div>

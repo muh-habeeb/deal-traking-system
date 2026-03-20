@@ -36,13 +36,13 @@ function formatPosted(listing) {
 
 let sessionStatusPoller = null;
 let sessionViewerUrl = '';
+let sessionActionInProgress = false;
 
 function getSessionButtons() {
     return {
         start: document.getElementById('startSessionBtn'),
         viewer: document.getElementById('openSessionViewerBtn'),
         refresh: document.getElementById('refreshSessionBtn'),
-        logout: document.getElementById('logoutSessionBtn'),
     };
 }
 
@@ -65,14 +65,12 @@ function setSessionButtonsVisibility(status) {
         buttons.start.hidden = true;
         buttons.viewer.hidden = true;
         buttons.refresh.hidden = false;
-        buttons.logout.hidden = false;
         return;
     }
 
     buttons.start.hidden = false;
     buttons.viewer.hidden = !(loginInProgress && hasViewerUrl);
     buttons.refresh.hidden = false;
-    buttons.logout.hidden = false;
 }
 
 function stopSessionStatusPolling() {
@@ -93,12 +91,25 @@ function ensureSessionStatusPolling() {
 }
 
 async function runSessionAction(action) {
+    sessionActionInProgress = true;
     setSessionButtonsDisabled(true);
     try {
         await action();
     } finally {
+        sessionActionInProgress = false;
         setSessionButtonsDisabled(false);
     }
+}
+
+function setSessionLoading(visible, message = 'Working...') {
+    const loading = document.getElementById('sessionLoading');
+    const loadingText = document.getElementById('sessionLoadingText');
+    if (!loading || !loadingText) {
+        return;
+    }
+
+    loading.style.display = visible ? 'block' : 'none';
+    loadingText.textContent = message;
 }
 
 function updateSessionViewer(status) {
@@ -363,6 +374,10 @@ async function loadSessionStatus() {
     const holder = document.getElementById('sessionStatus');
 
     try {
+        if (!sessionActionInProgress) {
+            setSessionLoading(true, 'Refreshing Facebook session status...');
+        }
+
         const data = await api('/api/facebook-session/status');
         updateSessionViewer(data);
 
@@ -390,12 +405,17 @@ async function loadSessionStatus() {
     } catch (error) {
         stopSessionStatusPolling();
         holder.textContent = error.message;
+    } finally {
+        if (!sessionActionInProgress) {
+            setSessionLoading(false);
+        }
     }
 }
 
 async function startFacebookLogin() {
     await runSessionAction(async () => {
         const holder = document.getElementById('sessionStatus');
+        setSessionLoading(true, 'Starting Facebook login...');
         holder.textContent = 'Starting Facebook login window (auto-save enabled)...';
 
         try {
@@ -408,6 +428,8 @@ async function startFacebookLogin() {
             }
         } catch (error) {
             holder.textContent = error.message;
+        } finally {
+            setSessionLoading(false);
         }
     });
 }
@@ -422,22 +444,6 @@ function openSessionViewer() {
     window.open(sessionViewerUrl, '_blank', 'noopener,noreferrer');
 }
 
-async function logoutFacebookSession() {
-    await runSessionAction(async () => {
-        const holder = document.getElementById('sessionStatus');
-        holder.textContent = 'Logging out Facebook session...';
-
-        try {
-            const data = await api('/api/facebook-session/logout', { method: 'POST' });
-            updateSessionViewer(data);
-            holder.innerHTML = `${data.message}<br/>Session file exists: ${data.exists ? 'Yes' : 'No'}`;
-            setSessionButtonsVisibility(data);
-        } catch (error) {
-            holder.textContent = error.message;
-        }
-    });
-}
-
 function wireEvents() {
     document.getElementById('emailForm').addEventListener('submit', saveEmail);
     document.getElementById('sendTestEmailBtn').addEventListener('click', sendTestEmail);
@@ -448,7 +454,6 @@ function wireEvents() {
     document.getElementById('refreshSessionBtn').addEventListener('click', loadSessionStatus);
     document.getElementById('startSessionBtn').addEventListener('click', startFacebookLogin);
     document.getElementById('openSessionViewerBtn').addEventListener('click', openSessionViewer);
-    document.getElementById('logoutSessionBtn').addEventListener('click', logoutFacebookSession);
     document.getElementById('logoutBtn').addEventListener('click', () => {
         localStorage.removeItem('swoop_token');
         location.href = '/';
