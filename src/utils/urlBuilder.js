@@ -12,7 +12,7 @@ function buildMarketplaceSearchUrl({ baseUrl, keyword, location, minPrice, maxPr
   const category = resolveCategory(categoryKey || 'all');
 
   const url = category && category.categoryId
-    ? new URL(`${baseUrl}/category/search`)
+    ? new URL(`${baseUrl}/category/search/`)
     : new URL(`${baseUrl}/${pathLocation}/search`);
 
   if (pathKeyword) {
@@ -21,7 +21,6 @@ function buildMarketplaceSearchUrl({ baseUrl, keyword, location, minPrice, maxPr
 
   if (category && category.categoryId) {
     url.searchParams.set('category_id', category.categoryId);
-    url.searchParams.set('exact', 'false');
   }
 
   if (Number.isFinite(minPrice)) {

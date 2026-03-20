@@ -1,6 +1,6 @@
 const MARKETPLACE_CATEGORIES = [
   { key: 'all', label: 'All Categories', categoryId: null },
-  { key: 'vehicles', label: 'Vehicles', categoryId: '807311116002614' },
+  { key: 'vehicles', label: 'Vehicles', categoryId: '546583916084032' },
   { key: 'property-rentals', label: 'Property Rentals', categoryId: '1468271819871448' },
   { key: 'property-for-sale', label: 'Property For Sale', categoryId: '126488334087718' },
   { key: 'electronics', label: 'Electronics', categoryId: '161145360579581' },
