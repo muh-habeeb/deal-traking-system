@@ -2,6 +2,15 @@ FROM node:22-bookworm-slim
 
 WORKDIR /app
 
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends \
+		xvfb \
+		fluxbox \
+		x11vnc \
+		novnc \
+		websockify \
+	&& rm -rf /var/lib/apt/lists/*
+
 # Install Playwright browser and runtime dependencies for Chromium.
 RUN npx --yes playwright@1.58.2 install --with-deps chromium
 
@@ -14,8 +23,12 @@ RUN npm ci
 
 COPY . .
 
+RUN chmod +x /app/scripts/container-entrypoint.sh
+
 RUN npm run prisma:generate
 
 EXPOSE 4000
+EXPOSE 5900
+EXPOSE 6080
 
-CMD ["sh", "-c", "npm run prisma:deploy && npm run start"]
+CMD ["/app/scripts/container-entrypoint.sh"]

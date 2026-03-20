@@ -29,6 +29,7 @@ async function scrapeByFilter(filterConfig) {
     baseUrl: env.playwrightBaseUrl,
     keyword: filterConfig.keyword,
     location: filterConfig.location,
+    categoryKey: filterConfig.categoryKey,
     minPrice: filterConfig.minPrice,
     maxPrice: filterConfig.maxPrice,
   });

@@ -4,6 +4,7 @@ Swoop is a Facebook Marketplace deal tracker with an admin UI.
 
 It lets you:
 - create and manage search filters (keyword, location, min/max price)
+- choose Facebook Marketplace category per filter (vehicles, property, electronics, musical instruments, etc.)
 - scrape new listings on a schedule
 - deduplicate listings by URL
 - send email alerts for new matches
@@ -56,6 +57,12 @@ npx playwright install --with-deps chromium
 ```bash
 npm run prisma:generate
 npm run prisma:migrate
+```
+
+If deploying existing database, make sure migrations are applied so `FilterConfig.categoryKey` exists:
+
+```bash
+npm run prisma:deploy
 ```
 
 5. Start the app
@@ -207,6 +214,7 @@ Base path: `/api`
 - `GET /facebook-session/status`
 - `POST /facebook-session/start`
 - `POST /facebook-session/save`
+- `POST /facebook-session/import`
 - `POST /facebook-session/logout`
 
 ## Troubleshooting
@@ -261,6 +269,38 @@ npm run auth:facebook
 5. Confirm file exists at `PLAYWRIGHT_STORAGE_STATE_PATH` (default `playwright/storageState.json`).
 
 If your VPS has no desktop, use Xvfb (virtual display) or run this step once on a machine with GUI and copy the saved storage state file to the VPS.
+
+### VPS popup login via noVNC (remote)
+
+If you want to use **Start Facebook Login** directly from hosted app:
+
+1. Set these env values in Docker/host:
+	- `ALLOW_REMOTE_FACEBOOK_LOGIN=true`
+	- `VNC_PASSWORD=your-strong-password`
+2. Expose `NOVNC_PORT` (default `6080`) on the server.
+3. Rebuild and restart containers.
+4. Open noVNC in browser: `http://<server-ip>:6080/vnc.html`
+5. In dashboard, click **Start Facebook Login**.
+6. Complete Facebook login inside the noVNC browser window, then click **Save Session** in dashboard.
+
+Note: keep `PLAYWRIGHT_HEADLESS=true` for scraping. Interactive login uses headed mode only for the start/save flow.
+
+### Hosted-safe session import (recommended)
+
+If your hosted server cannot open a popup browser, use the dashboard Import Session JSON feature:
+
+1. Generate `storageState.json` on a local machine with GUI (`npm run auth:facebook`).
+2. Open the file and copy all JSON content.
+3. In dashboard, paste into **Import storageState JSON** and click **Import Session JSON**.
+
+You can also call API directly:
+
+```bash
+curl -X POST https://your-domain/api/facebook-session/import \\
+	-H "Authorization: Bearer YOUR_TOKEN" \\
+	-H "Content-Type: application/json" \\
+	-d '{"storageStateJson":"{\"cookies\":[...],\"origins\":[...]}"}'
+```
 
 ### Render Setup
 

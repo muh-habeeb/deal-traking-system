@@ -28,11 +28,14 @@
       <section class="card">
         <h2>Facebook Session</h2>
         <div id="sessionStatus" class="notice">Checking...</div>
-        <p class="small" id="info" >Use Start Facebook Login, complete login in the opened browser, then click Save Session.</p>
+        <p class="small" id="info">Hosted popup mode needs virtual display: open noVNC at http://your-server-ip:6080/vnc.html first. After successful login, Swoop auto-saves the session and closes the login window. Otherwise use Import storageState JSON.</p>
         <div class="row" style="margin-top: 10px;">
           <button id="startSessionBtn">Start Facebook Login</button>
           <button id="saveSessionBtn" class="secondary">Save Session</button>
         </div>
+        <label for="sessionJsonInput" style="margin-top: 12px;">Import storageState JSON</label>
+        <textarea id="sessionJsonInput" rows="6" placeholder='Paste JSON like {"cookies": [...], "origins": [...]}'></textarea>
+        <button id="importSessionBtn" class="secondary" style="margin-top: 10px;">Import Session JSON</button>
         <div class="row" style="margin-top: 10px;">
           <button id="refreshSessionBtn" class="secondary">Refresh Session Status</button>
           <button id="logoutSessionBtn" class="secondary">Logout Facebook</button>
@@ -50,6 +53,10 @@
         <div>
           <label for="location">Location (city)</label>
           <input id="location" required placeholder="toronto" />
+        </div>
+        <div>
+          <label for="categoryKey">Category</label>
+          <select id="categoryKey"></select>
         </div>
         <div>
           <label for="minPrice">Min Price</label>
@@ -77,6 +84,7 @@
             <tr>
               <th>Keyword</th>
               <th>Location</th>
+              <th>Category</th>
               <th>Min</th>
               <th>Max</th>
               <th>Actions</th>

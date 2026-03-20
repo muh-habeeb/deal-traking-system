@@ -36,11 +36,16 @@ services:
       NOTIFICATION_RETENTION_HOURS: "12"
       NOTIFICATION_DELAY_MS: "2500"
       PLAYWRIGHT_HEADLESS: "true"
-      ALLOW_REMOTE_FACEBOOK_LOGIN: "false"
+      ALLOW_REMOTE_FACEBOOK_LOGIN: "true"
       PLAYWRIGHT_BASE_URL: https://www.facebook.com/marketplace
       PLAYWRIGHT_STORAGE_STATE_PATH: /app/playwright/storageState.json
       PLAYWRIGHT_EXECUTABLE_PATH: ""
       PLAYWRIGHT_BROWSER_ARGS: --no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage
+      DISPLAY: ":99"
+      XVFB_SCREEN: 1366x768x24
+      VNC_PORT: "5900"
+      NOVNC_PORT: "6080"
+      VNC_PASSWORD: change-this-vnc-password
       SMTP_HOST: smtp.gmail.com
       SMTP_PORT: "587"
       SMTP_SECURE: "true"
@@ -55,6 +60,7 @@ services:
     ports:
       # - "4000:4000"
       - "8080:4000"
+      - "6080:6080"
       # - "80:4000" by nginex  proxy and certbot 
       # - "443:4000"
     volumes:

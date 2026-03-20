@@ -26,7 +26,7 @@ app.use(
 );
 // app.use(cors({ origin: isDev ? 'http://localhost:4000' : "https://deal-traking-system.onrender.com", credentials: true }));
 // app.use(cors({ origin: "*", credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 

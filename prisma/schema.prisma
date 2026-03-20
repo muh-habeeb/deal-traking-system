@@ -22,12 +22,14 @@ model FilterConfig {
   minPrice   Int?
   maxPrice   Int?
   location   String
+  categoryKey String  @default("all")
   createdAt  DateTime @default(now())
   userId     String?
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([keyword])
   @@index([location])
+  @@index([categoryKey])
   @@index([createdAt])
   @@index([userId])
 }

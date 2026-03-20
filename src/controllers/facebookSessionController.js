@@ -3,6 +3,7 @@ const {
   startFacebookLoginFlow,
   saveFacebookSession,
   logoutFacebookSession,
+  importFacebookSession,
 } = require('../services/facebookSessionService');
 
 async function getSessionStatus(_req, res) {
@@ -13,7 +14,7 @@ async function getSessionStatus(_req, res) {
       ...status,
       hint: status.loginInProgress
         ? 'Complete login in opened browser and click Save Session in dashboard.'
-        : 'Click Start Facebook Login in dashboard to begin.',
+        : 'For hosted servers, use Import Session JSON from dashboard.',
     });
   }
 
@@ -62,9 +63,28 @@ async function logoutSession(_req, res, next) {
   }
 }
 
+async function importSession(req, res, next) {
+  try {
+    const payload = req.body || {};
+    const input = payload.storageStateJson || payload.storageState || payload;
+    const status = await importFacebookSession(input);
+
+    return res.json({
+      message: 'Facebook session imported successfully.',
+      ...status,
+    });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    return next(error);
+  }
+}
+
 module.exports = {
   getSessionStatus,
   startSessionLogin,
   saveSession,
   logoutSession,
+  importSession,
 };

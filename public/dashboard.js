@@ -2,6 +2,38 @@ function getToken() {
     return localStorage.getItem('swoop_token');
 }
 
+const MARKETPLACE_CATEGORIES = [
+    { key: 'all', label: 'All Categories' },
+    { key: 'vehicles', label: 'Vehicles' },
+    { key: 'property-rentals', label: 'Property Rentals' },
+    { key: 'property-for-sale', label: 'Property For Sale' },
+    { key: 'electronics', label: 'Electronics' },
+    { key: 'musical-instruments', label: 'Musical Instruments' },
+    { key: 'home-garden', label: 'Home and Garden' },
+    { key: 'family', label: 'Family' },
+    { key: 'hobbies', label: 'Hobbies' },
+    { key: 'fashion', label: 'Fashion' },
+    { key: 'pet-supplies', label: 'Pet Supplies' },
+    { key: 'sporting-goods', label: 'Sporting Goods' },
+    { key: 'toys-games', label: 'Toys and Games' },
+    { key: 'free-stuff', label: 'Free Stuff' },
+];
+
+let sessionStatusPoller = null;
+
+function toCategoryOptionsHtml(selectedKey) {
+    return MARKETPLACE_CATEGORIES
+        .map((category) => `<option value="${category.key}" ${category.key === selectedKey ? 'selected' : ''}>${category.label}</option>`)
+        .join('');
+}
+
+function initializeCategorySelects() {
+    const select = document.getElementById('categoryKey');
+    if (select) {
+        select.innerHTML = toCategoryOptionsHtml('all');
+    }
+}
+
 function getSessionButtons() {
     return {
         start: document.getElementById('startSessionBtn'),
@@ -36,6 +68,23 @@ function setSessionButtonsVisibility(status) {
     buttons.save.hidden = false;
     buttons.refresh.hidden = true;
     buttons.logout.hidden = true;
+}
+
+function stopSessionStatusPolling() {
+    if (sessionStatusPoller) {
+        clearInterval(sessionStatusPoller);
+        sessionStatusPoller = null;
+    }
+}
+
+function ensureSessionStatusPolling() {
+    if (sessionStatusPoller) {
+        return;
+    }
+
+    sessionStatusPoller = setInterval(() => {
+        loadSessionStatus();
+    }, 3000);
 }
 
 async function runSessionAction(action) {
@@ -135,6 +184,7 @@ async function createFilter(event) {
     const payload = {
         keyword: document.getElementById('keyword').value.trim(),
         location: document.getElementById('location').value.trim(),
+        categoryKey: document.getElementById('categoryKey').value || 'all',
         minPrice: document.getElementById('minPrice').value || null,
         maxPrice: document.getElementById('maxPrice').value || null,
     };
@@ -157,6 +207,9 @@ function renderFilterRow(filter) {
     tr.innerHTML = `
     <td><input data-role="keyword" value="${filter.keyword || ''}" /></td>
     <td><input data-role="location" value="${filter.location || ''}" /></td>
+        <td>
+            <select data-role="categoryKey">${toCategoryOptionsHtml(filter.categoryKey || 'all')}</select>
+        </td>
     <td><input data-role="minPrice" type="number" min="0" value="${filter.minPrice ?? ''}" /></td>
     <td><input data-role="maxPrice" type="number" min="0" value="${filter.maxPrice ?? ''}" /></td>
     <td>
@@ -228,6 +281,7 @@ async function onFilterTableClick(event) {
         const payload = {
             keyword: row.querySelector('input[data-role="keyword"]').value.trim(),
             location: row.querySelector('input[data-role="location"]').value.trim(),
+            categoryKey: row.querySelector('select[data-role="categoryKey"]').value || 'all',
             minPrice: row.querySelector('input[data-role="minPrice"]').value || null,
             maxPrice: row.querySelector('input[data-role="maxPrice"]').value || null,
         };
@@ -277,15 +331,27 @@ async function loadSessionStatus() {
 
     try {
         const data = await api('/api/facebook-session/status');
+
+        if (data.loginInProgress) {
+            ensureSessionStatusPolling();
+        } else {
+            stopSessionStatusPolling();
+        }
+
         if (!data.exists) {
-            holder.innerHTML = `<span class="badge warn">No Facebook session found</span><br/>${data.hint || ''}<br/>Login in progress: ${data.loginInProgress ? 'Yes' : 'No'}`;
+            const autoSaveText = data.loginInProgress
+                ? '<br/>Auto-save is watching for successful login and will close the login window automatically.'
+                : '';
+            holder.innerHTML = `<span class="badge warn">No Facebook session found</span><br/>${data.hint || ''}<br/>Login in progress: ${data.loginInProgress ? 'Yes' : 'No'}${autoSaveText}`;
             setSessionButtonsVisibility(data);
             return;
         }
 
-        holder.innerHTML = `<span class="badge">Session Ready</span><br/>Updated: ${new Date(data.updatedAt).toLocaleString()}<br/>Cookies: ${data.cookieCount || 0}<br/>File size: ${data.size || 0} bytes`;
+        const autoSaved = data.lastAutoSavedAt ? `<br/>Auto-saved: ${new Date(data.lastAutoSavedAt).toLocaleString()}` : '';
+        holder.innerHTML = `<span class="badge">Session Ready</span><br/>Updated: ${new Date(data.updatedAt).toLocaleString()}<br/>Cookies: ${data.cookieCount || 0}<br/>File size: ${data.size || 0} bytes${autoSaved}`;
         setSessionButtonsVisibility(data);
     } catch (error) {
+        stopSessionStatusPolling();
         holder.textContent = error.message;
     }
 }
@@ -293,12 +359,15 @@ async function loadSessionStatus() {
 async function startFacebookLogin() {
     await runSessionAction(async () => {
         const holder = document.getElementById('sessionStatus');
-        holder.textContent = 'Starting Facebook login window...';
+        holder.textContent = 'Starting Facebook login window (auto-save enabled)...';
 
         try {
             const data = await api('/api/facebook-session/start', { method: 'POST' });
-            holder.innerHTML = `${data.message}<br/>Login in progress: ${data.loginInProgress ? 'Yes' : 'No'}`;
+            holder.innerHTML = `${data.message}<br/>Login in progress: ${data.loginInProgress ? 'Yes' : 'No'}<br/>After successful login, session will auto-save and close the browser window.`;
             setSessionButtonsVisibility(data);
+            if (data.loginInProgress) {
+                ensureSessionStatusPolling();
+            }
         } catch (error) {
             holder.textContent = error.message;
         }
@@ -337,6 +406,33 @@ async function logoutFacebookSession() {
     });
 }
 
+async function importFacebookSessionFromJson() {
+    await runSessionAction(async () => {
+        const holder = document.getElementById('sessionStatus');
+        const jsonInput = document.getElementById('sessionJsonInput');
+        const storageStateJson = jsonInput.value.trim();
+
+        if (!storageStateJson) {
+            holder.textContent = 'Paste Playwright storageState JSON before importing.';
+            return;
+        }
+
+        holder.textContent = 'Importing session JSON...';
+
+        try {
+            const data = await api('/api/facebook-session/import', {
+                method: 'POST',
+                body: JSON.stringify({ storageStateJson }),
+            });
+            holder.innerHTML = `${data.message}<br/>Updated: ${new Date(data.updatedAt).toLocaleString()}<br/>Cookies: ${data.cookieCount || 0}`;
+            jsonInput.value = '';
+            setSessionButtonsVisibility(data);
+        } catch (error) {
+            holder.textContent = error.message;
+        }
+    });
+}
+
 function wireEvents() {
     document.getElementById('emailForm').addEventListener('submit', saveEmail);
     document.getElementById('sendTestEmailBtn').addEventListener('click', sendTestEmail);
@@ -347,6 +443,7 @@ function wireEvents() {
     document.getElementById('refreshSessionBtn').addEventListener('click', loadSessionStatus);
     document.getElementById('startSessionBtn').addEventListener('click', startFacebookLogin);
     document.getElementById('saveSessionBtn').addEventListener('click', saveFacebookSession);
+    document.getElementById('importSessionBtn').addEventListener('click', importFacebookSessionFromJson);
     document.getElementById('logoutSessionBtn').addEventListener('click', logoutFacebookSession);
     document.getElementById('logoutBtn').addEventListener('click', () => {
         localStorage.removeItem('swoop_token');
@@ -359,8 +456,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 10000)
 }
 );
+
+window.addEventListener('beforeunload', () => {
+    stopSessionStatusPolling();
+});
+
 (async function init() {
     await ensureLogin();
+    initializeCategorySelects();
     wireEvents();
     setSessionButtonsDisabled(false);
     await Promise.all([loadEmail(), loadSessionStatus(), loadFilters(), loadListings()]);

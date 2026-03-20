@@ -6,6 +6,7 @@ async function createFilterConfig(payload) {
     minPrice: payload.minPrice ?? null,
     maxPrice: payload.maxPrice ?? null,
     location: payload.location.trim(),
+    categoryKey: payload.categoryKey,
     userId: payload.userId ?? null,
   };
 
@@ -30,6 +31,7 @@ async function updateFilterConfig(id, payload) {
     minPrice: payload.minPrice ?? null,
     maxPrice: payload.maxPrice ?? null,
     location: payload.location.trim(),
+    categoryKey: payload.categoryKey,
   };
 
   return prisma.filterConfig.update({
