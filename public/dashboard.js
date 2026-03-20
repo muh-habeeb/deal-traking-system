@@ -315,6 +315,10 @@ async function loadListings() {
         <td>${listing.title || 'N/A'}</td>
         <td>${listing.price !== null && listing.price !== undefined ? `CA$${listing.price}` : 'N/A'}</td>
         <td>${listing.location || 'N/A'}</td>
+        <td>${listing.createdAt ? new Date(listing.createdAt).toLocaleString("en-US", {
+                dateStyle: "medium",
+                timeStyle: "short"
+            }) : 'N/A'}</td>
         <td><a href="${listing.url}" target="_blank" rel="noopener noreferrer">Open</a></td>
       `;
             tbody.appendChild(tr);
