@@ -38,12 +38,12 @@ const transporter = nodemailer.createTransport({
 
 function formatListingHtml(listing) {
   return `
-    <div style="font-family: Arial, sans-serif; line-height: 1.4;">
+    <div style="font-family: Arial, sans-serif; line-height: 1.4; display:flex;flex-direction:column; align-items:center;justify-content:center; height:auto;" >
       <h2>New Deal Found</h2>
       <p><strong>Title:</strong> ${listing.title}</p>
       <p><strong>Price:</strong> ${listing.price ? `$${listing.price}` : 'N/A'}</p>
       <p><strong>Location:</strong> ${listing.location || 'Unknown'}</p>
-      <p><a href="${listing.url}" target="_blank" rel="noopener noreferrer">View Listing</a></p>
+      <p><a href="${listing.url}" target="_blank" rel="noopener noreferrer" style="color: #fff; background-color: #007bff; padding: 10px 20px; text-decoration: none;">View Listing</a></p>
       ${listing.image ? `<img src="${listing.image}" alt="listing" style="max-width: 320px;" />` : ''}
     </div>
   `;
