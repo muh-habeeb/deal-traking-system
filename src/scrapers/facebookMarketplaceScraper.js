@@ -18,7 +18,7 @@ async function hasStorageState() {
 
 async function extractRawListingsFromPage(page) {
   return page.evaluate(() => {
-    const priceHintRegex = /(ca\$|c\$|cad\b|\$|free\b|gratuit\b)/i;
+    const priceHintRegex = /(\b(?:cad|usd|eur|gbp|aud|nzd|ars|mxn|inr|jpy|cny|brl|clp|cop|pen)\b|ca\$|c\$|\$|free\b|gratuit\b)/i;
     const amountRegex = /(\d{1,3}(?:[,\s]\d{3})+|\d+)(?:\.\d{2})?/;
     const mileageRegex = /\b(\d{1,3}(?:[,\s]\d{3})*|\d+)(?:\s*[kK])?\s*(miles?|mi|km|kilometers?)\b/i;
 
@@ -253,7 +253,7 @@ async function extractRawListingsFromPage(page) {
 
 function buildGlobalFallbackUrl({ baseUrl, keyword, location, minPrice, maxPrice }) {
   const url = new URL(`${baseUrl}/search`);
-  const mergedQuery = [String(keyword || '').trim(), String(location || '').trim()]
+  const mergedQuery = [String(keyword || '').trim(), String(location || '').trim(), 'Vehicles']
     .filter(Boolean)
     .join(' ')
     .trim();
@@ -261,6 +261,11 @@ function buildGlobalFallbackUrl({ baseUrl, keyword, location, minPrice, maxPrice
   if (mergedQuery) {
     url.searchParams.set('query', mergedQuery);
   }
+
+  url.searchParams.set('sortBy', 'creation_time_descend');
+  url.searchParams.set('category_id', '546583916084032');
+  url.searchParams.set('exact', 'false');
+  url.searchParams.set('radius_in_km', '500');
 
   if (Number.isFinite(minPrice)) {
     url.searchParams.set('minPrice', String(minPrice));
@@ -275,10 +280,30 @@ function buildGlobalFallbackUrl({ baseUrl, keyword, location, minPrice, maxPrice
 
 async function loadAndExtractListings(page, url) {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.waitForTimeout(2500);
+  await page.waitForTimeout(2000);
 
-  await page.mouse.wheel(0, 2500);
-  await page.waitForTimeout(1500);
+  for (let i = 0; i < 4; i += 1) {
+    try {
+      await page.waitForSelector('a[href*="/marketplace/item/"]', { timeout: 4000 });
+      break;
+    } catch (_error) {
+      // Keep trying after a small scroll; FB often lazy-renders cards.
+      await page.mouse.wheel(0, 2200);
+      await page.waitForTimeout(1200);
+    }
+  }
+
+  let previousCount = 0;
+  for (let i = 0; i < 5; i += 1) {
+    const currentCount = await page.locator('a[href*="/marketplace/item/"]').count();
+    if (currentCount > 0 && currentCount === previousCount) {
+      break;
+    }
+
+    previousCount = currentCount;
+    await page.mouse.wheel(0, 2600);
+    await page.waitForTimeout(1400);
+  }
 
   return extractRawListingsFromPage(page);
 }

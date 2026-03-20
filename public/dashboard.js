@@ -462,7 +462,7 @@ function wireEvents() {
 document.addEventListener('DOMContentLoaded', () => {
     setInterval(() => {
         loadListings();
-    }, 10000)
+    }, 120000)
 }
 );
 

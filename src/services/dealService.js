@@ -102,6 +102,31 @@ function isLikelyPriceTitle(title) {
   return /(ca\$|c\$|cad\b|\$|\bfree\b|\bgratuit\b)/i.test(String(title || '').trim());
 }
 
+function isLikelyVehicleDeal(listing) {
+  const title = String(listing.title || '').trim();
+  const corpus = `${listing.title || ''} ${listing.vehicleName || ''} ${listing.description || ''} ${listing.searchableText || ''}`.toLowerCase();
+  const hasLeadingYear = /^(19\d{2}|20\d{2})\b/.test(title);
+  const hasMileage = Number.isFinite(listing.mileageMiles) || Boolean(listing.mileageText);
+  const hasVehicleTypeWord =
+    /\b(car|sedan|suv|truck|van|pickup|coupe|wagon|hatchback|convertible|motorhome|rv|motorcycle|bike|pilot|civic|accord|camry|corolla|mustang|explorer|rav4|cr-v)\b/i.test(
+      corpus
+    );
+
+  const partIndicatorRegex =
+    /\b(part|parts|accessory|accessories|spoiler|bumper|lip|wing|kit|cover|covers|tail\s*light|headlight|mud\s*flap|gps|tracker|tint|transmission|engine|brochure|glasses|rim|rims|wheel|wheels|tire|tires)\b/i;
+  const fitmentIndicatorRegex =
+    /\b(fits?|fitment|for all cars|set of|pair of|conversion kit|replacement|aftermarket)\b/i;
+
+  const isPartsStyleListing = partIndicatorRegex.test(corpus) || fitmentIndicatorRegex.test(corpus);
+  const lowPriceAccessory = Number.isFinite(listing.price) && listing.price > 0 && listing.price <= 150;
+
+  if (isPartsStyleListing && !hasMileage && (!hasLeadingYear || lowPriceAccessory)) {
+    return false;
+  }
+
+  return hasLeadingYear || hasMileage || hasVehicleTypeWord;
+}
+
 function isWithinLastHours(value, hours) {
   if (!value || !Number.isFinite(hours) || hours <= 0) {
     return true;
@@ -186,6 +211,7 @@ async function processFilter(filterConfig) {
   const freshListings = [];
   let keywordMisses = 0;
   let locationMisses = 0;
+  let nonVehicleMisses = 0;
   let staleMisses = 0;
 
   for (const scraped of scrapedListings) {
@@ -200,6 +226,11 @@ async function processFilter(filterConfig) {
 
     if (!matchesFilterLocation(scraped, filterConfig.location)) {
       locationMisses += 1;
+      continue;
+    }
+
+    if (!isLikelyVehicleDeal(scraped)) {
+      nonVehicleMisses += 1;
       continue;
     }
 
@@ -261,6 +292,7 @@ async function processFilter(filterConfig) {
     newListings: freshListings.length,
     keywordMisses,
     locationMisses,
+    nonVehicleMisses,
     staleMisses,
   });
 

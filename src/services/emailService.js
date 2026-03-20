@@ -74,43 +74,50 @@ function formatListingHtml(listing) {
   const posted = formatPostedDate(listing.postedAt, listing.postedText);
 
   return `
-  <div style="font-family: Arial, sans-serif; background: #f4f6f8; padding: 16px;">
-    <div style="max-width: 980px; margin: 0 auto; background: #ffffff; border: 1px solid #e6e8ec; border-radius: 8px; overflow: hidden;">
-      <div style="padding: 14px 16px; border-bottom: 1px solid #e6e8ec; background: #fafbfc;">
+  <div style="font-family: Arial, sans-serif; background: #f4f6f8; padding: 12px;">
+    <div style="max-width: 640px; margin: 0 auto; background: #ffffff; border: 1px solid #e6e8ec; border-radius: 8px; overflow: hidden;">
+      <div style="padding: 14px 16px; border-bottom: 1px solid #e6e8ec; background: #fafbfc; text-align: left;">
         <h2 style="margin: 0; font-size: 18px; color: #1f2937;">New Marketplace Deal</h2>
       </div>
-      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-        <thead>
-          <tr style="background: #f9fafb; text-align: left;">
-            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Image</th>
-            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Name</th>
-            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Year</th>
-            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Price</th>
-            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Mileage</th>
-            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Location</th>
-            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Posted</th>
-            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Description</th>
-            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Link</th>
-          </tr>
-        </thead>
+      ${
+        listing.image
+          ? `<img src="${escapeHtml(listing.image)}" alt="listing" style="display:block;width:100%;max-width:100%;height:auto;object-fit:cover;" />`
+          : ''
+      }
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
         <tbody>
           <tr>
-            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">
-              ${
-                listing.image
-                  ? `<img src="${escapeHtml(listing.image)}" alt="listing" style="width: 96px; height: 72px; object-fit: cover; border-radius: 4px;" />`
-                  : 'N/A'
-              }
-            </td>
-            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">${escapeHtml(vehicleName)}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">${escapeHtml(modelYear)}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">${escapeHtml(formatPrice(listing.price))}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">${escapeHtml(listing.mileageText || 'N/A')}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">${escapeHtml(listing.location || 'N/A')}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">${escapeHtml(posted)}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #eef0f3; max-width: 260px;">${escapeHtml(listing.description || 'N/A')}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">
-              <a href="${escapeHtml(listing.url)}" target="_blank" rel="noopener noreferrer">Open</a>
+            <td style="padding: 10px 12px; width: 34%; background: #f9fafb; border-bottom: 1px solid #eef0f3; color: #4b5563; font-weight: 600;">Name</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #eef0f3; color: #111827; word-break: break-word;">${escapeHtml(vehicleName)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 12px; width: 34%; background: #f9fafb; border-bottom: 1px solid #eef0f3; color: #4b5563; font-weight: 600;">Year</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #eef0f3; color: #111827; word-break: break-word;">${escapeHtml(modelYear)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 12px; width: 34%; background: #f9fafb; border-bottom: 1px solid #eef0f3; color: #4b5563; font-weight: 600;">Price</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #eef0f3; color: #111827; word-break: break-word;">${escapeHtml(formatPrice(listing.price))}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 12px; width: 34%; background: #f9fafb; border-bottom: 1px solid #eef0f3; color: #4b5563; font-weight: 600;">Mileage</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #eef0f3; color: #111827; word-break: break-word;">${escapeHtml(listing.mileageText || 'N/A')}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 12px; width: 34%; background: #f9fafb; border-bottom: 1px solid #eef0f3; color: #4b5563; font-weight: 600;">Location</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #eef0f3; color: #111827; word-break: break-word;">${escapeHtml(listing.location || 'N/A')}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 12px; width: 34%; background: #f9fafb; border-bottom: 1px solid #eef0f3; color: #4b5563; font-weight: 600;">Posted</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #eef0f3; color: #111827; word-break: break-word;">${escapeHtml(posted)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 12px; width: 34%; background: #f9fafb; border-bottom: 1px solid #eef0f3; color: #4b5563; font-weight: 600;">Description</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #eef0f3; color: #111827; word-break: break-word;">${escapeHtml(listing.description || 'N/A')}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 12px; width: 34%; background: #f9fafb; border-bottom: 1px solid #eef0f3; color: #4b5563; font-weight: 600;">Link</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #eef0f3; color: #111827; word-break: break-word;">
+              <a href="${escapeHtml(listing.url)}" target="_blank" rel="noopener noreferrer">Open Listing</a>
             </td>
           </tr>
         </tbody>

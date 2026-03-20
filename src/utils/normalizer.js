@@ -13,7 +13,8 @@ function parsePrice(value) {
   }
 
   // Avoid interpreting years or model numbers as prices.
-  const hasCurrencyHint = /(ca\$|c\$|cad\b|\$)/i.test(text);
+  const hasCurrencyHint =
+    /(\b(?:cad|usd|eur|gbp|aud|nzd|ars|mxn|inr|jpy|cny|brl|clp|cop|pen)\b|ca\$|c\$|\$)/i.test(text);
   if (!hasCurrencyHint) {
     return null;
   }
@@ -69,9 +70,15 @@ function isLikelyPriceText(value) {
   }
 
   const text = String(value).trim();
-  const hasCurrencyHint = /(ca\$|c\$|cad\b|\$|\bfree\b|\bgratuit\b)/i.test(text);
+  const hasCurrencyHint =
+    /(\b(?:cad|usd|eur|gbp|aud|nzd|ars|mxn|inr|jpy|cny|brl|clp|cop|pen)\b|ca\$|c\$|\$|\bfree\b|\bgratuit\b)/i.test(
+      text
+    );
   const hasAmount = /(\d{1,3}(?:[,\s]\d{3})+|\d+)/.test(text);
-  return hasCurrencyHint && hasAmount;
+  const startsWithCurrencyCode = /^(?:cad|usd|eur|gbp|aud|nzd|ars|mxn|inr|jpy|cny|brl|clp|cop|pen)\s?\$?\s?\d/i.test(
+    text
+  );
+  return (hasCurrencyHint && hasAmount) || startsWithCurrencyCode;
 }
 
 function isMetaOrLocationLine(value) {
