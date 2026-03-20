@@ -29,7 +29,7 @@ function matchesFilterKeyword(listing, keyword) {
     return true;
   }
 
-  const corpus = `${listing.title || ''} ${listing.searchableText || ''}`.toLowerCase();
+  const corpus = `${listing.title || ''} ${listing.vehicleName || ''} ${listing.description || ''} ${listing.searchableText || ''}`.toLowerCase();
   return tokens.every((token) => corpus.includes(token));
 }
 
@@ -102,6 +102,20 @@ function isLikelyPriceTitle(title) {
   return /(ca\$|c\$|cad\b|\$|\bfree\b|\bgratuit\b)/i.test(String(title || '').trim());
 }
 
+function isWithinLastHours(value, hours) {
+  if (!value || !Number.isFinite(hours) || hours <= 0) {
+    return true;
+  }
+
+  const timestamp = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  if (Number.isNaN(timestamp)) {
+    return true;
+  }
+
+  const cutoff = Date.now() - hours * 60 * 60 * 1000;
+  return timestamp >= cutoff;
+}
+
 function shouldRepairExisting(existing, incoming) {
   if (!existing || !incoming) {
     return false;
@@ -114,10 +128,31 @@ function shouldRepairExisting(existing, incoming) {
     existingTitle && incomingTitle && isLikelyPriceTitle(existingTitle) && !isLikelyPriceTitle(incomingTitle);
 
   const priceUpgrade = (existing.price === null || existing.price === undefined) && Number.isFinite(incoming.price);
+  const yearUpgrade =
+    (existing.modelYear === null || existing.modelYear === undefined) &&
+    Number.isFinite(incoming.modelYear);
+  const nameUpgrade = !existing.vehicleName && Boolean(incoming.vehicleName);
+  const mileageUpgrade =
+    (existing.mileageMiles === null || existing.mileageMiles === undefined) &&
+    Number.isFinite(incoming.mileageMiles);
   const locationUpgrade = !existing.location && Boolean(incoming.location);
+  const descriptionUpgrade = !existing.description && Boolean(incoming.description);
+  const postedAtUpgrade = !existing.postedAt && Boolean(incoming.postedAt);
+  const postedTextUpgrade = !existing.postedText && Boolean(incoming.postedText);
   const imageUpgrade = !existing.image && Boolean(incoming.image);
 
-  return titleUpgrade || priceUpgrade || locationUpgrade || imageUpgrade;
+  return (
+    titleUpgrade ||
+    priceUpgrade ||
+    yearUpgrade ||
+    nameUpgrade ||
+    mileageUpgrade ||
+    locationUpgrade ||
+    descriptionUpgrade ||
+    postedAtUpgrade ||
+    postedTextUpgrade ||
+    imageUpgrade
+  );
 }
 
 async function hasNotificationMarker(listingIdentity) {
@@ -151,6 +186,7 @@ async function processFilter(filterConfig) {
   const freshListings = [];
   let keywordMisses = 0;
   let locationMisses = 0;
+  let staleMisses = 0;
 
   for (const scraped of scrapedListings) {
     if (!scraped.url || !scraped.title) {
@@ -164,6 +200,11 @@ async function processFilter(filterConfig) {
 
     if (!matchesFilterLocation(scraped, filterConfig.location)) {
       locationMisses += 1;
+      continue;
+    }
+
+    if (scraped.postedAt && !isWithinLastHours(scraped.postedAt, 24)) {
+      staleMisses += 1;
       continue;
     }
 
@@ -220,6 +261,7 @@ async function processFilter(filterConfig) {
     newListings: freshListings.length,
     keywordMisses,
     locationMisses,
+    staleMisses,
   });
 
   return freshListings;

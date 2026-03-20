@@ -29,32 +29,111 @@ function assertEmailConfig() {
 const transporter = nodemailer.createTransport({
   host: env.smtp.host,
   port: env.smtp.port,
-//   secure: env.smtp.secure,
+  //   secure: env.smtp.secure,
   auth: {
     user: env.smtp.user,
     pass: env.smtp.pass,
   },
 });
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatPrice(price) {
+  if (price === null || price === undefined) {
+    return 'N/A';
+  }
+
+  return `CA$${Number(price).toLocaleString('en-CA')}`;
+}
+
+function formatPostedDate(postedAt, postedText) {
+  if (postedAt) {
+    const parsed = new Date(postedAt);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleString('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+    }
+  }
+
+  return postedText || 'N/A';
+}
+
 function formatListingHtml(listing) {
+  const vehicleName = listing.vehicleName || listing.title || 'N/A';
+  const modelYear =
+    listing.modelYear !== null && listing.modelYear !== undefined ? String(listing.modelYear) : 'N/A';
+  const posted = formatPostedDate(listing.postedAt, listing.postedText);
+
   return `
-    <div style="font-family: Arial, sans-serif; line-height: 1.4; display:flex;flex-direction:column; align-items:center;justify-content:center; height:auto;" >
-      <h2>New Deal Found</h2>
-      <p><strong>Title:</strong> ${listing.title}</p>
-      <p><strong>Price:</strong> ${listing.price ? `$${listing.price}` : 'N/A'}</p>
-      <p><strong>Location:</strong> ${listing.location || 'Unknown'}</p>
-      <p><a href="${listing.url}" target="_blank" rel="noopener noreferrer" style="color: #fff; background-color: #007bff; padding: 10px 20px; text-decoration: none;">View Listing</a></p>
-      ${listing.image ? `<img src="${listing.image}" alt="listing" style="max-width: 320px;" />` : ''}
+  <div style="font-family: Arial, sans-serif; background: #f4f6f8; padding: 16px;">
+    <div style="max-width: 980px; margin: 0 auto; background: #ffffff; border: 1px solid #e6e8ec; border-radius: 8px; overflow: hidden;">
+      <div style="padding: 14px 16px; border-bottom: 1px solid #e6e8ec; background: #fafbfc;">
+        <h2 style="margin: 0; font-size: 18px; color: #1f2937;">New Marketplace Deal</h2>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: #f9fafb; text-align: left;">
+            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Image</th>
+            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Name</th>
+            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Year</th>
+            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Price</th>
+            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Mileage</th>
+            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Location</th>
+            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Posted</th>
+            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Description</th>
+            <th style="padding: 10px; border-bottom: 1px solid #e6e8ec;">Link</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">
+              ${
+                listing.image
+                  ? `<img src="${escapeHtml(listing.image)}" alt="listing" style="width: 96px; height: 72px; object-fit: cover; border-radius: 4px;" />`
+                  : 'N/A'
+              }
+            </td>
+            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">${escapeHtml(vehicleName)}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">${escapeHtml(modelYear)}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">${escapeHtml(formatPrice(listing.price))}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">${escapeHtml(listing.mileageText || 'N/A')}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">${escapeHtml(listing.location || 'N/A')}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">${escapeHtml(posted)}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eef0f3; max-width: 260px;">${escapeHtml(listing.description || 'N/A')}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eef0f3;">
+              <a href="${escapeHtml(listing.url)}" target="_blank" rel="noopener noreferrer">Open</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="padding: 10px 16px; font-size: 12px; color: #6b7280;">
+        Original title: ${escapeHtml(listing.title || 'N/A')}
+      </div>
     </div>
-  `;
+  </div>
+`;
 }
 
 function formatListingText(listing) {
+  const posted = formatPostedDate(listing.postedAt, listing.postedText);
   return [
     'New Deal Found',
-    `Title: ${listing.title}`,
-    `Price: ${listing.price !== null && listing.price !== undefined ? `CA$${listing.price}` : 'N/A'}`,
+    `Name: ${listing.vehicleName || listing.title || 'N/A'}`,
+    `Year: ${listing.modelYear !== null && listing.modelYear !== undefined ? listing.modelYear : 'N/A'}`,
+    `Price: ${formatPrice(listing.price)}`,
+    `Mileage: ${listing.mileageText || 'N/A'}`,
     `Location: ${listing.location || 'Unknown'}`,
+    `Posted: ${posted}`,
+    `Description: ${listing.description || 'N/A'}`,
     `URL: ${listing.url}`,
   ].join('\n');
 }

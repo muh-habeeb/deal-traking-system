@@ -22,14 +22,12 @@ model FilterConfig {
   minPrice   Int?
   maxPrice   Int?
   location   String
-  categoryKey String  @default("all")
   createdAt  DateTime @default(now())
   userId     String?
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([keyword])
   @@index([location])
-  @@index([categoryKey])
   @@index([createdAt])
   @@index([userId])
 }
@@ -37,8 +35,15 @@ model FilterConfig {
 model Listing {
   id               String            @id @default(cuid())
   title            String
+  vehicleName      String?
+  modelYear        Int?
   price            Int?
+  mileageText      String?
+  mileageMiles     Int?
   location         String?
+  description      String?
+  postedText       String?
+  postedAt         DateTime?
   url              String            @unique
   image            String?
   externalId       String?
@@ -46,7 +51,9 @@ model Listing {
   notificationLogs NotificationLog[]
 
   @@index([createdAt])
+  @@index([postedAt])
   @@index([price])
+  @@index([modelYear])
   @@index([externalId])
 }
 

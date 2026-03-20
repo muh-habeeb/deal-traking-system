@@ -2,37 +2,39 @@ function getToken() {
     return localStorage.getItem('swoop_token');
 }
 
-const MARKETPLACE_CATEGORIES = [
-    { key: 'all', label: 'All Categories' },
-    { key: 'vehicles', label: 'Vehicles' },
-    { key: 'property-rentals', label: 'Property Rentals' },
-    { key: 'property-for-sale', label: 'Property For Sale' },
-    { key: 'electronics', label: 'Electronics' },
-    { key: 'musical-instruments', label: 'Musical Instruments' },
-    { key: 'home-garden', label: 'Home and Garden' },
-    { key: 'family', label: 'Family' },
-    { key: 'hobbies', label: 'Hobbies' },
-    { key: 'fashion', label: 'Fashion' },
-    { key: 'pet-supplies', label: 'Pet Supplies' },
-    { key: 'sporting-goods', label: 'Sporting Goods' },
-    { key: 'toys-games', label: 'Toys and Games' },
-    { key: 'free-stuff', label: 'Free Stuff' },
-];
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatPrice(value) {
+    if (value === null || value === undefined) {
+        return 'N/A';
+    }
+
+    return `CA$${Number(value).toLocaleString('en-CA')}`;
+}
+
+function formatPosted(listing) {
+    const source = listing.postedAt || listing.createdAt;
+    if (source) {
+        const parsed = new Date(source);
+        if (!Number.isNaN(parsed.getTime())) {
+            return parsed.toLocaleString("en-US", {
+                dateStyle: "medium",
+                timeStyle: "short"
+            });
+        }
+    }
+
+    return listing.postedText || 'N/A';
+}
 
 let sessionStatusPoller = null;
-
-function toCategoryOptionsHtml(selectedKey) {
-    return MARKETPLACE_CATEGORIES
-        .map((category) => `<option value="${category.key}" ${category.key === selectedKey ? 'selected' : ''}>${category.label}</option>`)
-        .join('');
-}
-
-function initializeCategorySelects() {
-    const select = document.getElementById('categoryKey');
-    if (select) {
-        select.innerHTML = toCategoryOptionsHtml('all');
-    }
-}
 
 function getSessionButtons() {
     return {
@@ -184,7 +186,6 @@ async function createFilter(event) {
     const payload = {
         keyword: document.getElementById('keyword').value.trim(),
         location: document.getElementById('location').value.trim(),
-        categoryKey: document.getElementById('categoryKey').value || 'all',
         minPrice: document.getElementById('minPrice').value || null,
         maxPrice: document.getElementById('maxPrice').value || null,
     };
@@ -207,9 +208,6 @@ function renderFilterRow(filter) {
     tr.innerHTML = `
     <td><input data-role="keyword" value="${filter.keyword || ''}" /></td>
     <td><input data-role="location" value="${filter.location || ''}" /></td>
-        <td>
-            <select data-role="categoryKey">${toCategoryOptionsHtml(filter.categoryKey || 'all')}</select>
-        </td>
     <td><input data-role="minPrice" type="number" min="0" value="${filter.minPrice ?? ''}" /></td>
     <td><input data-role="maxPrice" type="number" min="0" value="${filter.maxPrice ?? ''}" /></td>
     <td>
@@ -281,7 +279,6 @@ async function onFilterTableClick(event) {
         const payload = {
             keyword: row.querySelector('input[data-role="keyword"]').value.trim(),
             location: row.querySelector('input[data-role="location"]').value.trim(),
-            categoryKey: row.querySelector('select[data-role="categoryKey"]').value || 'all',
             minPrice: row.querySelector('input[data-role="minPrice"]').value || null,
             maxPrice: row.querySelector('input[data-role="maxPrice"]').value || null,
         };
@@ -311,15 +308,23 @@ async function loadListings() {
 
         for (const listing of listings) {
             const tr = document.createElement('tr');
+            const imageCell = listing.image
+                ? `<img src="${escapeHtml(listing.image)}" alt="listing" style="width:72px;height:54px;object-fit:cover;border-radius:4px;" />`
+                : 'N/A';
+            const description = listing.description
+                ? `${escapeHtml(listing.description).slice(0, 120)}${listing.description.length > 120 ? '...' : ''}`
+                : 'N/A';
+
             tr.innerHTML = `
-        <td>${listing.title || 'N/A'}</td>
-        <td>${listing.price !== null && listing.price !== undefined ? `CA$${listing.price}` : 'N/A'}</td>
-        <td>${listing.location || 'N/A'}</td>
-        <td>${listing.createdAt ? new Date(listing.createdAt).toLocaleString("en-US", {
-                dateStyle: "medium",
-                timeStyle: "short"
-            }) : 'N/A'}</td>
-        <td><a href="${listing.url}" target="_blank" rel="noopener noreferrer">Open</a></td>
+        <td>${imageCell}</td>
+        <td>${escapeHtml(listing.vehicleName || listing.title || 'N/A')}</td>
+        <td>${listing.modelYear || 'N/A'}</td>
+        <td>${formatPrice(listing.price)}</td>
+        <td>${escapeHtml(listing.mileageText || 'N/A')}</td>
+        <td>${escapeHtml(listing.location || 'N/A')}</td>
+        <td>${escapeHtml(formatPosted(listing))}</td>
+        <td>${description}</td>
+        <td><a href="${escapeHtml(listing.url)}" target="_blank" rel="noopener noreferrer">Open</a></td>
       `;
             tbody.appendChild(tr);
         }
@@ -467,7 +472,6 @@ window.addEventListener('beforeunload', () => {
 
 (async function init() {
     await ensureLogin();
-    initializeCategorySelects();
     wireEvents();
     setSessionButtonsDisabled(false);
     await Promise.all([loadEmail(), loadSessionStatus(), loadFilters(), loadListings()]);

@@ -5,7 +5,6 @@ const {
   updateFilterConfig,
   deleteFilterConfig,
 } = require('../services/filterService');
-const { normalizeCategoryKey, MARKETPLACE_CATEGORIES } = require('../utils/marketplaceCategories');
 
 function parseNumber(value) {
   if (value === undefined || value === null || value === '') {
@@ -18,7 +17,7 @@ function parseNumber(value) {
 
 async function createFilter(req, res, next) {
   try {
-    const { keyword, location, minPrice, maxPrice, categoryKey, userId } = req.body;
+    const { keyword, location, minPrice, maxPrice, userId } = req.body;
 
     if (!keyword || !location) {
       return res.status(400).json({
@@ -41,19 +40,11 @@ async function createFilter(req, res, next) {
       });
     }
 
-    const normalizedCategoryKey = normalizeCategoryKey(categoryKey || 'all');
-    if (!normalizedCategoryKey) {
-      return res.status(400).json({
-        message: `Invalid categoryKey. Allowed values: ${MARKETPLACE_CATEGORIES.map((item) => item.key).join(', ')}`,
-      });
-    }
-
     const filter = await createFilterConfig({
       keyword,
       location,
       minPrice: parsedMin,
       maxPrice: parsedMax,
-      categoryKey: normalizedCategoryKey,
       userId,
     });
 
@@ -90,7 +81,7 @@ async function getFilterById(req, res, next) {
 async function updateFilter(req, res, next) {
   try {
     const { id } = req.params;
-    const { keyword, location, minPrice, maxPrice, categoryKey } = req.body;
+    const { keyword, location, minPrice, maxPrice } = req.body;
 
     if (!keyword || !location) {
       return res.status(400).json({
@@ -113,19 +104,11 @@ async function updateFilter(req, res, next) {
       });
     }
 
-    const normalizedCategoryKey = normalizeCategoryKey(categoryKey || 'all');
-    if (!normalizedCategoryKey) {
-      return res.status(400).json({
-        message: `Invalid categoryKey. Allowed values: ${MARKETPLACE_CATEGORIES.map((item) => item.key).join(', ')}`,
-      });
-    }
-
     const updated = await updateFilterConfig(id, {
       keyword,
       location,
       minPrice: parsedMin,
       maxPrice: parsedMax,
-      categoryKey: normalizedCategoryKey,
     });
 
     return res.json(updated);

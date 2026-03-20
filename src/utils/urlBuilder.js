@@ -1,26 +1,18 @@
-const { resolveCategory } = require('./marketplaceCategories');
-
 function sanitizeKeyword(keyword) {
   return String(keyword || '')
     .trim()
     .replace(/\s+/g, ' ');
 }
 
-function buildMarketplaceSearchUrl({ baseUrl, keyword, location, minPrice, maxPrice, categoryKey }) {
+function buildMarketplaceSearchUrl({ baseUrl, keyword, location, minPrice, maxPrice }) {
   const pathKeyword = encodeURIComponent(sanitizeKeyword(keyword));
   const pathLocation = encodeURIComponent(String(location || ''));
-  const category = resolveCategory(categoryKey || 'all');
-
-  const url = category && category.categoryId
-    ? new URL(`${baseUrl}/category/search/`)
-    : new URL(`${baseUrl}/${pathLocation}/search`);
+  const url = pathLocation
+    ? new URL(`${baseUrl}/${pathLocation}/search`)
+    : new URL(`${baseUrl}/search`);
 
   if (pathKeyword) {
     url.searchParams.set('query', sanitizeKeyword(keyword));
-  }
-
-  if (category && category.categoryId) {
-    url.searchParams.set('category_id', category.categoryId);
   }
 
   if (Number.isFinite(minPrice)) {
