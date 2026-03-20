@@ -121,7 +121,7 @@ async function startFacebookLoginFlow() {
   const inProduction = env.nodeEnv === 'production';
   if ((runningOnRender || inProduction) && !env.allowRemoteFacebookLogin) {
     const error = new Error(
-      'Interactive Facebook login is disabled in hosted mode. Run login locally or set ALLOW_REMOTE_FACEBOOK_LOGIN=true if your environment supports headed browsers.'
+      'Interactive Facebook login is disabled in hosted mode. Set ALLOW_REMOTE_FACEBOOK_LOGIN=true and ensure noVNC/Xvfb is running.'
     );
     error.status = 400;
     throw error;

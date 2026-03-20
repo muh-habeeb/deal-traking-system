@@ -35,11 +35,12 @@ function formatPosted(listing) {
 }
 
 let sessionStatusPoller = null;
+let sessionViewerUrl = '';
 
 function getSessionButtons() {
     return {
         start: document.getElementById('startSessionBtn'),
-        save: document.getElementById('saveSessionBtn'),
+        viewer: document.getElementById('openSessionViewerBtn'),
         refresh: document.getElementById('refreshSessionBtn'),
         logout: document.getElementById('logoutSessionBtn'),
     };
@@ -57,19 +58,21 @@ function setSessionButtonsDisabled(disabled) {
 function setSessionButtonsVisibility(status) {
     const buttons = getSessionButtons();
     const hasSession = Boolean(status && status.exists);
+    const loginInProgress = Boolean(status && status.loginInProgress);
+    const hasViewerUrl = Boolean(status && status.loginViewerUrl);
 
     if (hasSession) {
         buttons.start.hidden = true;
-        buttons.save.hidden = true;
+        buttons.viewer.hidden = true;
         buttons.refresh.hidden = false;
         buttons.logout.hidden = false;
         return;
     }
 
     buttons.start.hidden = false;
-    buttons.save.hidden = false;
-    buttons.refresh.hidden = true;
-    buttons.logout.hidden = true;
+    buttons.viewer.hidden = !(loginInProgress && hasViewerUrl);
+    buttons.refresh.hidden = false;
+    buttons.logout.hidden = false;
 }
 
 function stopSessionStatusPolling() {
@@ -95,6 +98,27 @@ async function runSessionAction(action) {
         await action();
     } finally {
         setSessionButtonsDisabled(false);
+    }
+}
+
+function updateSessionViewer(status) {
+    const viewerWrap = document.getElementById('sessionViewerWrap');
+    const viewerFrame = document.getElementById('sessionViewerFrame');
+    const openViewerBtn = document.getElementById('openSessionViewerBtn');
+    sessionViewerUrl = String(status?.loginViewerUrl || '').trim();
+
+    if (!sessionViewerUrl || !status?.loginInProgress) {
+        viewerWrap.style.display = 'none';
+        viewerFrame.removeAttribute('src');
+        openViewerBtn.hidden = true;
+        return;
+    }
+
+    openViewerBtn.hidden = false;
+    viewerWrap.style.display = 'block';
+
+    if (viewerFrame.getAttribute('src') !== sessionViewerUrl) {
+        viewerFrame.setAttribute('src', sessionViewerUrl);
     }
 }
 
@@ -340,6 +364,7 @@ async function loadSessionStatus() {
 
     try {
         const data = await api('/api/facebook-session/status');
+        updateSessionViewer(data);
 
         if (data.loginInProgress) {
             ensureSessionStatusPolling();
@@ -349,9 +374,12 @@ async function loadSessionStatus() {
 
         if (!data.exists) {
             const autoSaveText = data.loginInProgress
-                ? '<br/>Auto-save is watching for successful login and will close the login window automatically.'
+                ? '<br/>Auto-save is watching for successful login and will store session automatically.'
                 : '';
-            holder.innerHTML = `<span class="badge warn">No Facebook session found</span><br/>${data.hint || ''}<br/>Login in progress: ${data.loginInProgress ? 'Yes' : 'No'}${autoSaveText}`;
+            const viewerLink = data.loginInProgress && data.loginViewerUrl
+                ? `<br/>Login Screen: <a href="${escapeHtml(data.loginViewerUrl)}" target="_blank" rel="noopener noreferrer">Open</a>`
+                : '';
+            holder.innerHTML = `<span class="badge warn">No Facebook session found</span><br/>${data.hint || ''}<br/>Login in progress: ${data.loginInProgress ? 'Yes' : 'No'}${autoSaveText}${viewerLink}`;
             setSessionButtonsVisibility(data);
             return;
         }
@@ -372,7 +400,8 @@ async function startFacebookLogin() {
 
         try {
             const data = await api('/api/facebook-session/start', { method: 'POST' });
-            holder.innerHTML = `${data.message}<br/>Login in progress: ${data.loginInProgress ? 'Yes' : 'No'}<br/>After successful login, session will auto-save and close the browser window.`;
+            updateSessionViewer(data);
+            holder.innerHTML = `${data.message}<br/>Login in progress: ${data.loginInProgress ? 'Yes' : 'No'}<br/>Open Login Screen, complete sign-in, and session will auto-save automatically.`;
             setSessionButtonsVisibility(data);
             if (data.loginInProgress) {
                 ensureSessionStatusPolling();
@@ -383,21 +412,14 @@ async function startFacebookLogin() {
     });
 }
 
-async function saveFacebookSession() {
-    await runSessionAction(async () => {
+function openSessionViewer() {
+    if (!sessionViewerUrl) {
         const holder = document.getElementById('sessionStatus');
-        holder.textContent = 'Saving session...';
+        holder.textContent = 'Login screen URL is not available yet. Click Start Facebook Login first.';
+        return;
+    }
 
-        try {
-            const data = await api('/api/facebook-session/save', { method: 'POST' });
-            holder.innerHTML = `${data.message}<br/>Updated: ${new Date(data.updatedAt).toLocaleString()}<br/>Cookies: ${data.cookieCount || 0}`;
-            setSessionButtonsVisibility(data);
-            window.alert('Facebook session saved successfully. Please refresh session status to confirm.');
-        } catch (error) {
-            holder.textContent = error.message;
-
-        }
-    });
+    window.open(sessionViewerUrl, '_blank', 'noopener,noreferrer');
 }
 
 async function logoutFacebookSession() {
@@ -407,34 +429,8 @@ async function logoutFacebookSession() {
 
         try {
             const data = await api('/api/facebook-session/logout', { method: 'POST' });
+            updateSessionViewer(data);
             holder.innerHTML = `${data.message}<br/>Session file exists: ${data.exists ? 'Yes' : 'No'}`;
-            setSessionButtonsVisibility(data);
-        } catch (error) {
-            holder.textContent = error.message;
-        }
-    });
-}
-
-async function importFacebookSessionFromJson() {
-    await runSessionAction(async () => {
-        const holder = document.getElementById('sessionStatus');
-        const jsonInput = document.getElementById('sessionJsonInput');
-        const storageStateJson = jsonInput.value.trim();
-
-        if (!storageStateJson) {
-            holder.textContent = 'Paste Playwright storageState JSON before importing.';
-            return;
-        }
-
-        holder.textContent = 'Importing session JSON...';
-
-        try {
-            const data = await api('/api/facebook-session/import', {
-                method: 'POST',
-                body: JSON.stringify({ storageStateJson }),
-            });
-            holder.innerHTML = `${data.message}<br/>Updated: ${new Date(data.updatedAt).toLocaleString()}<br/>Cookies: ${data.cookieCount || 0}`;
-            jsonInput.value = '';
             setSessionButtonsVisibility(data);
         } catch (error) {
             holder.textContent = error.message;
@@ -451,8 +447,7 @@ function wireEvents() {
     document.getElementById('refreshListingsBtn').addEventListener('click', loadListings);
     document.getElementById('refreshSessionBtn').addEventListener('click', loadSessionStatus);
     document.getElementById('startSessionBtn').addEventListener('click', startFacebookLogin);
-    document.getElementById('saveSessionBtn').addEventListener('click', saveFacebookSession);
-    document.getElementById('importSessionBtn').addEventListener('click', importFacebookSessionFromJson);
+    document.getElementById('openSessionViewerBtn').addEventListener('click', openSessionViewer);
     document.getElementById('logoutSessionBtn').addEventListener('click', logoutFacebookSession);
     document.getElementById('logoutBtn').addEventListener('click', () => {
         localStorage.removeItem('swoop_token');

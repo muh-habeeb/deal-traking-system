@@ -21,6 +21,8 @@ const env = {
   playwrightBrowserArgs:
     process.env.PLAYWRIGHT_BROWSER_ARGS ||
     '--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage',
+  noVncPublicUrl: process.env.NO_VNC_PUBLIC_URL || '',
+  noVncPort: Number(process.env.NOVNC_PORT || 6080),
   smtp: {
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT),

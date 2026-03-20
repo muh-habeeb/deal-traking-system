@@ -1,37 +1,24 @@
 # Facebook Session Setup
 
-Swoop supports three ways to provide a valid Playwright Facebook session.
+Swoop uses a dashboard-first Facebook login flow with auto-save.
 
-## Option A: Local Login + Import JSON (Most Reliable)
-
-1. Run locally:
-
-```bash
-npm run auth:facebook
-```
-
-2. Complete login and save `storageState.json`.
-3. In dashboard, use **Import storageState JSON**.
-4. Paste JSON and click **Import Session JSON**.
-
-Best for: cloud hosts where popup browsers are restricted.
-
-## Option B: Hosted Popup Login (noVNC)
+## Hosted Login Flow (Recommended)
 
 Requirements:
 
 - `ALLOW_REMOTE_FACEBOOK_LOGIN=true`
 - GUI stack enabled in container (Xvfb, VNC, noVNC)
 - Reachable noVNC endpoint (`/vnc.html`)
+- Optional: `NO_VNC_PUBLIC_URL` for custom domain/path exposure
 
 Use flow:
 
-1. Open noVNC screen (`http://server:6080/vnc.html` or via SSH tunnel)
-2. In dashboard click **Start Facebook Login**
-3. Complete Facebook login in noVNC window
-4. Click **Save Session** (or wait for auto-save if enabled)
+1. In dashboard click **Start Facebook Login**.
+2. Click **Open Login Screen**.
+3. Complete Facebook sign-in in that screen.
+4. Session is auto-saved (no JSON upload needed).
 
-## Option C: Manual File Placement
+## Manual File Placement (Fallback)
 
 Place valid storage state at:
 
@@ -53,10 +40,11 @@ Or API:
 ## Common Errors
 
 - `Interactive Facebook login is disabled in hosted mode`
-  - Set `ALLOW_REMOTE_FACEBOOK_LOGIN=true` and provide GUI stack, or use Option A.
+  - Set `ALLOW_REMOTE_FACEBOOK_LOGIN=true` and provide GUI stack.
 
-- `No cookies found in storage state`
-  - Login did not complete, or wrong JSON pasted.
+- Session does not auto-save after login
+  - Keep dashboard open for a few seconds after login and click **Refresh Session Status**.
+  - Confirm noVNC/Xvfb is running and reachable.
 
 - noVNC URL not opening
   - Check `http://.../vnc.html` path (not `vnc.htm`)

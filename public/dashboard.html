@@ -28,14 +28,14 @@
       <section class="card">
         <h2>Facebook Session</h2>
         <div id="sessionStatus" class="notice">Checking...</div>
-        <p class="small" id="info">Hosted popup mode needs virtual display: open noVNC at http://your-server-ip:6080/vnc.html first. After successful login, Swoop auto-saves the session and closes the login window. Otherwise use Import storageState JSON.</p>
+        <p class="small" id="info">Click Start Facebook Login, then open Login Screen and sign in. Session is auto-saved after successful login.</p>
         <div class="row" style="margin-top: 10px;">
           <button id="startSessionBtn">Start Facebook Login</button>
-          <button id="saveSessionBtn" class="secondary">Save Session</button>
+          <button id="openSessionViewerBtn" class="secondary" style="display: none;">Open Login Screen</button>
         </div>
-        <label for="sessionJsonInput" style="margin-top: 12px;">Import storageState JSON</label>
-        <textarea id="sessionJsonInput" rows="6" placeholder='Paste JSON like {"cookies": [...], "origins": [...]}'></textarea>
-        <button id="importSessionBtn" class="secondary" style="margin-top: 10px;">Import Session JSON</button>
+        <div id="sessionViewerWrap" style="display: none; margin-top: 12px;">
+          <iframe id="sessionViewerFrame" title="Facebook Login Screen" style="width: 100%; min-height: 480px; border: 1px solid #d9c8a9; border-radius: 10px; background: #fff;" referrerpolicy="no-referrer"></iframe>
+        </div>
         <div class="row" style="margin-top: 10px;">
           <button id="refreshSessionBtn" class="secondary">Refresh Session Status</button>
           <button id="logoutSessionBtn" class="secondary">Logout Facebook</button>
@@ -118,6 +118,6 @@
     </section>
   </div>
 
-  <script src="/dashboard.js?v=20260321-2"></script>
+  <script src="/dashboard.js?v=20260321-3"></script>
 </body>
 </html>

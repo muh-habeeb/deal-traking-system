@@ -5,27 +5,56 @@ const {
   logoutFacebookSession,
   importFacebookSession,
 } = require('../services/facebookSessionService');
+const env = require('../config/env');
 
-async function getSessionStatus(_req, res) {
+function getLoginViewerUrl(req) {
+  if (env.noVncPublicUrl) {
+    return env.noVncPublicUrl;
+  }
+
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || req.protocol || 'http')
+    .split(',')[0]
+    .trim();
+  const forwardedHost = String(req.headers['x-forwarded-host'] || req.headers.host || '')
+    .split(',')[0]
+    .trim();
+
+  if (!forwardedHost) {
+    return '';
+  }
+
+  const hostname = forwardedHost.split(':')[0];
+  if (!hostname) {
+    return '';
+  }
+
+  return `${forwardedProto}://${hostname}:${env.noVncPort}/vnc.html`;
+}
+
+async function getSessionStatus(req, res) {
   const status = getFacebookSessionStatus();
+  const loginViewerUrl = getLoginViewerUrl(req);
 
   if (!status.exists) {
     return res.json({
       ...status,
+      loginViewerUrl,
       hint: status.loginInProgress
-        ? 'Complete login in opened browser and click Save Session in dashboard.'
-        : 'For hosted servers, use Import Session JSON from dashboard.',
+        ? 'Complete Facebook login in the Login Screen. Session auto-saves after login.'
+        : 'Click Start Facebook Login, then open Login Screen and sign in.',
     });
   }
 
-  return res.json(status);
+  return res.json({ ...status, loginViewerUrl });
 }
 
-async function startSessionLogin(_req, res, next) {
+async function startSessionLogin(req, res, next) {
   try {
     const status = await startFacebookLoginFlow();
+    const loginViewerUrl = getLoginViewerUrl(req);
     return res.json({
-      message: 'Facebook login window opened. Complete login then click Save Session.',
+      message: 'Facebook login started. Open Login Screen and sign in. Session will auto-save.',
+      loginViewerUrl,
       ...status,
     });
   } catch (error) {
@@ -36,11 +65,13 @@ async function startSessionLogin(_req, res, next) {
   }
 }
 
-async function saveSession(_req, res, next) {
+async function saveSession(req, res, next) {
   try {
     const status = await saveFacebookSession();
+    const loginViewerUrl = getLoginViewerUrl(req);
     return res.json({
       message: 'Facebook session saved successfully.',
+      loginViewerUrl,
       ...status,
     });
   } catch (error) {
@@ -51,11 +82,13 @@ async function saveSession(_req, res, next) {
   }
 }
 
-async function logoutSession(_req, res, next) {
+async function logoutSession(req, res, next) {
   try {
     const status = await logoutFacebookSession();
+    const loginViewerUrl = getLoginViewerUrl(req);
     return res.json({
       message: 'Facebook session cleared.',
+      loginViewerUrl,
       ...status,
     });
   } catch (error) {
@@ -68,9 +101,11 @@ async function importSession(req, res, next) {
     const payload = req.body || {};
     const input = payload.storageStateJson || payload.storageState || payload;
     const status = await importFacebookSession(input);
+    const loginViewerUrl = getLoginViewerUrl(req);
 
     return res.json({
       message: 'Facebook session imported successfully.',
+      loginViewerUrl,
       ...status,
     });
   } catch (error) {
