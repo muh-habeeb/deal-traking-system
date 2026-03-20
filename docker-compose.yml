@@ -23,6 +23,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: swoop:latest
     container_name: swoop-app
     restart: unless-stopped
     environment:
