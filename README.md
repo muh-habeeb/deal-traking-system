@@ -1,22 +1,21 @@
 # Swoop
 
-Swoop is a Facebook Marketplace deal tracker with an admin UI.
+Swoop is a Facebook Marketplace deal tracker with admin dashboard, category-aware filters, Playwright scraping, and email alerts.
 
-It lets you:
-- create and manage search filters (keyword, location, min/max price)
-- choose Facebook Marketplace category per filter (vehicles, property, electronics, musical instruments, etc.)
-- scrape new listings on a schedule
-- deduplicate listings by URL
-- send email alerts for new matches
-- manage Facebook login session from the dashboard
+## Features
 
-## Tech Stack
+- Filter CRUD with keyword, location, category, min/max price
+- Facebook category search support (vehicles, property, electronics, etc.)
+- Scheduled scraping with dedupe and notification logs
+- Admin dashboard for filter management, listings, and session management
+- Facebook session workflows for local, hosted popup (noVNC), and JSON import
+
+## Stack
 
 - Node.js + Express
-- Prisma 7 + PostgreSQL
-- Playwright (Marketplace scraping)
-- Nodemailer (email notifications)
-- Static web UI (login + dashboard)
+- Prisma 7 + PostgreSQL (local or Neon)
+- Playwright
+- Nodemailer
 
 ## Quick Start
 
@@ -26,81 +25,39 @@ It lets you:
 npm install
 ```
 
-2. Create `.env` from sample
-
-PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-macOS/Linux:
+2. Create env file
 
 ```bash
 cp .env.example .env
 ```
-downlod playwitr 
-```bash
-npx playwright install --with-deps chromium
-```
 
-3. Update key environment values in `.env`
+3. Set required env values in `.env`
 
 - `DATABASE_URL`
+- `APP_AUTH_SECRET`
+- `APP_LOGIN_USERNAME`, `APP_LOGIN_PASSWORD`
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`
 - `ALERT_FROM`, `ALERT_TO`
-- `APP_LOGIN_USERNAME`, `APP_LOGIN_PASSWORD`
-- `APP_AUTH_SECRET`
 
-4. Prepare database
+4. Generate client and run migrations
 
 ```bash
 npm run prisma:generate
 npm run prisma:migrate
 ```
 
-If deploying existing database, make sure migrations are applied so `FilterConfig.categoryKey` exists:
-
-```bash
-npm run prisma:deploy
-```
-
-5. Start the app
+5. Run app
 
 ```bash
 npm run dev
 ```
 
-6. Open UI
+Open:
 
-- Login page: `http://localhost:4000/`
-- Dashboard: `http://localhost:4000/dashboard`
+- `http://localhost:4000/`
+- `http://localhost:4000/dashboard`
 
-## Run Commands
-
-- Dev server: `npm run dev`
-- Production start: `npm run start`
-- Generate Prisma client: `npm run prisma:generate`
-- Create/apply migration (development): `npm run prisma:migrate`
-- Reset database (development only): `npm run prisma:reset`
-- Apply migrations (deployment): `npm run prisma:deploy`
-- Legacy session script: `npm run auth:facebook`
-
-## Docker (Compose)
-
-This repository includes a Docker setup optimized for:
-- Playwright Chromium runtime dependencies
-- Persistent PostgreSQL storage via named volume
-- Persistent app runtime data via bind mounts (`playwright/`, `data/`)
-
-### Files
-
-- `Dockerfile`
-- `docker-compose.yml`
-- `.dockerignore`
-- `docker-compose.override.example.yml`
-
-### Quick commands
+## Docker Quick Start
 
 ```bash
 npm run docker:build
@@ -108,208 +65,26 @@ npm run docker:up
 npm run docker:logs
 ```
 
-Stop containers:
+## Main Scripts
 
-```bash
-npm run docker:down
-```
+- `npm run dev`
+- `npm run start`
+- `npm run prisma:generate`
+- `npm run prisma:migrate`
+- `npm run prisma:deploy`
+- `npm run auth:facebook`
 
-Stop and remove database volume (destructive):
-
-```bash
-npm run docker:down:volumes
-```
-
-Run migration inside container:
-
-```bash
-npm run docker:migrate
-```
-
-### Data and chunk management
-
-- PostgreSQL data is stored in volume `swoop_pg_data`
-- App keeps runtime files in mounted folders:
-	- `playwright/` for storage state
-	- `data/` for runtime settings
-- Listing and notification cleanup is still controlled by:
-	- `LISTING_RETENTION_HOURS`
-	- `NOTIFICATION_RETENTION_HOURS`
-
-### Override secrets safely
-
-Copy and customize override file:
-
-```bash
-cp docker-compose.override.example.yml docker-compose.override.yml
-```
-
-Set real SMTP/app credentials in `docker-compose.override.yml` before running in production.
-
-## UI Workflow (Recommended)
-
-1. Login with `APP_LOGIN_USERNAME` and `APP_LOGIN_PASSWORD`
-2. In **Receiver Email**, save the destination email and send a test email
-3. In **Facebook Session**:
-- click **Start Facebook Login**
-- complete Facebook login in the opened browser
-- return and click **Save Session**
-4. Create at least one filter
-5. Verify new listings in **Latest Listings**
-
-The scraper runs automatically on the cron schedule in `SCRAPE_CRON` (default every 10 minutes).
-
-## Environment Variables
-
-Default examples are in `.env.example`.
-
-- App
-- `NODE_ENV` (default: `development`)
-- `PORT` (default: `4000`)
-- `APP_AUTH_SECRET`
-- `APP_LOGIN_USERNAME`
-- `APP_LOGIN_PASSWORD`
-
-- Database
-- `DATABASE_URL`
-
-- Scraping
-- `SCRAPE_CRON`
-- `MAX_LISTINGS_PER_FILTER`
-- `PLAYWRIGHT_HEADLESS`
-- `PLAYWRIGHT_BASE_URL`
-- `PLAYWRIGHT_STORAGE_STATE_PATH`
-
-- Notification
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_SECURE`
-- `SMTP_USER`
-- `SMTP_PASS`
-- `ALERT_FROM`
-- `ALERT_TO`
-- `NOTIFICATION_DELAY_MS`
-
-- Data retention
-- `LISTING_RETENTION_HOURS`
-- `NOTIFICATION_RETENTION_HOURS`
-
-- Facebook session
-- `ALLOW_REMOTE_FACEBOOK_LOGIN` (default: `false`)
-
-## API Summary
+## API Snapshot
 
 Base path: `/api`
 
-- Public
-- `POST /auth/login`
-- `GET /health`
+- Public: `POST /auth/login`, `GET /health`
+- Protected: `GET /auth/me`, `GET/POST/PUT/DELETE /filters`, `GET /listings`, `PUT /settings/email`, `POST /notifications/test`
+- Facebook session: `GET /facebook-session/status`, `POST /facebook-session/start`, `POST /facebook-session/save`, `POST /facebook-session/import`, `POST /facebook-session/logout`
 
-- Protected (Bearer token)
-- `GET /auth/me`
-- `GET/POST/PUT/DELETE /filters`
-- `GET /listings`
-- `PUT /settings/email`
-- `POST /notifications/test`
-- `GET /facebook-session/status`
-- `POST /facebook-session/start`
-- `POST /facebook-session/save`
-- `POST /facebook-session/import`
-- `POST /facebook-session/logout`
+## Documentation
 
-## Troubleshooting
-
-- Port already in use
-- change `PORT` in `.env` or stop the process using port `4000`
-
-- `npm run dev` exits early
-- confirm PostgreSQL is running
-- verify `DATABASE_URL` and run `npm run prisma:migrate`
-
-- No email received
-- check SMTP credentials and `ALERT_TO`
-- use **Send Test Email** in dashboard and inspect server logs
-
-- Facebook session not ready
-- complete login in the popup browser before saving session
-- confirm `playwright/storageState.json` is created/updated
-
-## Notes for Deployment
-
-- run with `npm run start`
-- run migrations with `npm run prisma:deploy`
-- keep `.env` out of source control
-- use secure values for secrets and SMTP credentials
-
-## Facebook Login in Production
-
-Facebook Marketplace scraping needs a valid Playwright storage state file.
-
-### On Render (or similar managed hosts)
-
-- Interactive Facebook login (`POST /api/facebook-session/start`) is usually not supported.
-- Keep `ALLOW_REMOTE_FACEBOOK_LOGIN=false`.
-- Use one of these approaches:
-	- generate the session in a local/VPS environment and mount/provide the same `PLAYWRIGHT_STORAGE_STATE_PATH` file
-	- run the scraper on a VPS where a browser session can be created directly
-
-### On VPS
-
-Yes, you can run the command on VPS.
-
-1. SSH into your VPS and go to project folder.
-2. Run:
-
-```bash
-npm run auth:facebook
-```
-
-3. Complete Facebook login in the opened browser session.
-4. Press Enter in terminal when prompted to save.
-5. Confirm file exists at `PLAYWRIGHT_STORAGE_STATE_PATH` (default `playwright/storageState.json`).
-
-If your VPS has no desktop, use Xvfb (virtual display) or run this step once on a machine with GUI and copy the saved storage state file to the VPS.
-
-### VPS popup login via noVNC (remote)
-
-If you want to use **Start Facebook Login** directly from hosted app:
-
-1. Set these env values in Docker/host:
-	- `ALLOW_REMOTE_FACEBOOK_LOGIN=true`
-	- `VNC_PASSWORD=your-strong-password`
-2. Expose `NOVNC_PORT` (default `6080`) on the server.
-3. Rebuild and restart containers.
-4. Open noVNC in browser: `http://<server-ip>:6080/vnc.html`
-5. In dashboard, click **Start Facebook Login**.
-6. Complete Facebook login inside the noVNC browser window, then click **Save Session** in dashboard.
-
-Note: keep `PLAYWRIGHT_HEADLESS=true` for scraping. Interactive login uses headed mode only for the start/save flow.
-
-### Hosted-safe session import (recommended)
-
-If your hosted server cannot open a popup browser, use the dashboard Import Session JSON feature:
-
-1. Generate `storageState.json` on a local machine with GUI (`npm run auth:facebook`).
-2. Open the file and copy all JSON content.
-3. In dashboard, paste into **Import storageState JSON** and click **Import Session JSON**.
-
-You can also call API directly:
-
-```bash
-curl -X POST https://your-domain/api/facebook-session/import \\
-	-H "Authorization: Bearer YOUR_TOKEN" \\
-	-H "Content-Type: application/json" \\
-	-d '{"storageStateJson":"{\"cookies\":[...],\"origins\":[...]}"}'
-```
-
-### Render Setup
-
-- Build Command: `npm install && npm run prisma:deploy`
-- Start Command: `npm run start`
-- Required env vars at minimum: `DATABASE_URL`, `APP_AUTH_SECRET`, `APP_LOGIN_USERNAME`, `APP_LOGIN_PASSWORD`, SMTP vars
-
-`postinstall` runs `prisma generate`, so Prisma Client is always generated during build.
-
-## Additional Documentation
-
-For a client-friendly UI usage guide, see `docs/CLIENT_UI_GUIDE.md`.
+- [docs/CLIENT_UI_GUIDE.md](docs/CLIENT_UI_GUIDE.md)
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- [docs/FACEBOOK_SESSION.md](docs/FACEBOOK_SESSION.md)
+- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
