@@ -13,7 +13,7 @@ Requirements:
 
 Use flow:
 
-1. In dashboard click **Start Facebook Login**.
+1. In dashboard click **Login with Facebook**.
 2. Click **Open Login Screen**.
 3. Complete Facebook sign-in in that screen.
 4. Session is auto-saved (no JSON upload needed).

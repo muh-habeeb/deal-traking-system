@@ -9,6 +9,7 @@ This folder contains operational and product documentation for Swoop.
 - [DEPLOYMENT.md](DEPLOYMENT.md): Production deployment and infrastructure notes
 - [FACEBOOK_SESSION.md](FACEBOOK_SESSION.md): Facebook login/session setup workflows
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md): Common issues and fixes
+- [.ngnex_config_default.md](../.ngnex_config_default.md): Ready-to-paste Nginx production template
 
 ## Suggested Reading Order
 

@@ -1,24 +1,31 @@
 # Swoop
 
-Swoop is a Facebook Marketplace vehicle-deal tracking backend with an admin UI, scheduled scraping, deduplication, and email alerts.
+Swoop is a Facebook Marketplace vehicle-deal tracker with:
 
-## What It Does
+- Scheduled scraping with Playwright
+- Filter-based deal discovery
+- Email notifications
+- Admin dashboard for operations and Facebook session management
 
-- Manages search filters (`keyword`, `location`, `minPrice`, `maxPrice`)
-- Scrapes recent Facebook Marketplace vehicle listings on a schedule
-- Stores and deduplicates listings in PostgreSQL
-- Sends email notifications for newly discovered listings
-- Provides session tools for Facebook login state (local or hosted/noVNC)
+It is designed for self-hosting with Docker, PostgreSQL, and Nginx.
 
-## Tech Stack
+## Core Features
+
+- Filter CRUD (`keyword`, `location`, `minPrice`, `maxPrice`)
+- Automatic cron scans (`SCRAPE_CRON`)
+- Listing deduplication and identity matching
+- Email delivery controls (pause/resume without stopping scraping)
+- Facebook login session workflows (local or hosted noVNC)
+
+## Stack
 
 - Node.js + Express 5
 - Prisma 7 + PostgreSQL
-- Playwright (Marketplace scraping)
-- Nodemailer (SMTP alerts)
-- node-cron (scheduled scans)
+- Playwright
+- Nodemailer
+- Nginx + Certbot (production)
 
-## Quick Start (Local)
+## Local Quick Start
 
 1. Install dependencies
 
@@ -32,27 +39,22 @@ npm install
 cp .env.example .env
 ```
 
-3. Configure required values in `.env`
+3. Set required values in `.env`
 
 - `DATABASE_URL`
 - `APP_AUTH_SECRET`
-- `APP_LOGIN_USERNAME`
-- `APP_LOGIN_PASSWORD`
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_USER`
-- `SMTP_PASS`
-- `ALERT_FROM`
-- `ALERT_TO`
+- `APP_LOGIN_USERNAME`, `APP_LOGIN_PASSWORD`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
+- `ALERT_FROM`, `ALERT_TO`
 
-4. Generate Prisma client and run migrations
+4. Prepare Prisma
 
 ```bash
 npm run prisma:generate
 npm run prisma:migrate
 ```
 
-5. Start the app
+5. Start app
 
 ```bash
 npm run dev
@@ -60,8 +62,8 @@ npm run dev
 
 Open:
 
-- `http://localhost:4000/` (login page)
-- `http://localhost:4000/dashboard` (admin dashboard)
+- `http://localhost:4000/`
+- `http://localhost:4000/dashboard`
 
 ## Docker Quick Start
 
@@ -71,38 +73,47 @@ npm run docker:up
 npm run docker:logs
 ```
 
-## API Overview
+## Runtime Notes
+
+- Scans run on `SCRAPE_CRON` (default every 10 minutes)
+- `RUN_SCAN_ON_BOOT` controls initial startup scan
+- Email notifications can be paused from dashboard or API
+- Data cleanup runs after scan cycles
+
+## API
 
 Base path: `/api`
 
-- Public routes: `GET /health`, `POST /auth/login`
-- Token route: `GET /auth/me` (requires `Authorization: Bearer <token>`)
-- Protected routes: filters, listings, notifications, settings, facebook-session
+- Public: `GET /health`, `POST /auth/login`
+- Auth check: `GET /auth/me`
+- Protected: filters, listings, notifications, settings, facebook-session
 
-Full API guide: [docs/API_REFERENCE.md](docs/API_REFERENCE.md)
+Full API documentation: [docs/API_REFERENCE.md](docs/API_REFERENCE.md)
 
-## Key Runtime Behavior
+## Production
 
-- Cron scan uses `SCRAPE_CRON` (default: every 10 minutes)
-- Optional scan on boot controlled by `RUN_SCAN_ON_BOOT`
-- New listing alerts are delayed by `NOTIFICATION_DELAY_MS` between sends
-- Old listings/notification logs are cleaned up after each scan cycle
+For complete production setup (Docker, Nginx, SSL, Cloudflare, 502 troubleshooting), see:
 
-## NPM Scripts
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
-- `npm run dev` - start server with nodemon
-- `npm run start` - start production server
-- `npm run auth:facebook` - run Facebook auth-state helper script
-- `npm run prisma:generate` - generate Prisma client
-- `npm run prisma:migrate` - run local Prisma migrations
-- `npm run prisma:deploy` - run production-safe Prisma migrations
-- `npm run docker:build` / `docker:up` / `docker:down` / `docker:logs`
+## Scripts
 
-## Project Documentation
+- `npm run dev`
+- `npm run start`
+- `npm run auth:facebook`
+- `npm run prisma:generate`
+- `npm run prisma:migrate`
+- `npm run prisma:deploy`
+- `npm run docker:build`
+- `npm run docker:up`
+- `npm run docker:down`
+- `npm run docker:logs`
+
+## Documentation
 
 - [docs/README.md](docs/README.md)
 - [docs/API_REFERENCE.md](docs/API_REFERENCE.md)
-- [docs/CLIENT_UI_GUIDE.md](docs/CLIENT_UI_GUIDE.md)
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 - [docs/FACEBOOK_SESSION.md](docs/FACEBOOK_SESSION.md)
+- [docs/CLIENT_UI_GUIDE.md](docs/CLIENT_UI_GUIDE.md)
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)

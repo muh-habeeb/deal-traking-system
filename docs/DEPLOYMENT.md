@@ -1,95 +1,225 @@
 # Deployment Guide
 
-This guide covers production deployment for Swoop with Docker, Nginx, and HTTPS.
+This guide provides a production-ready setup for Swoop with:
 
-## 1. Recommended Production Topology
+- Docker (single app container)
+- Nginx reverse proxy
+- Let's Encrypt SSL (Certbot)
+- Optional Cloudflare
 
-- App container: `swoop-app` on host port `8080`
-- Nginx on host ports `80` and `443`
-- PostgreSQL: either local Docker (`db` profile) or managed DB (Neon)
-- Optional noVNC for remote Facebook login: port `6080`
+## 1. Target Architecture
 
-## 2. Environment Setup
+- App container listens internally on `127.0.0.1:8080 -> 4000`
+- noVNC listens internally on `127.0.0.1:6080 -> 6080`
+- Nginx handles public `80/443`
+- Public app URL: `https://your-domain`
+- noVNC URL via Nginx path: `https://your-domain/novnc/vnc.html`
 
-Create `.env` from `.env.example` and set at least:
+## 2. Prerequisites
+
+- Ubuntu/Debian VPS with Docker and Docker Compose
+- Domain DNS A record pointing to this VPS public IPv4
+- Open ports `80` and `443` in both the VPS firewall (`ufw`) and cloud provider firewall/security group
+
+## 3. Environment Configuration
+
+Create `.env` from `.env.example` and set required values:
 
 - `DATABASE_URL`
 - `APP_AUTH_SECRET`
 - `APP_LOGIN_USERNAME`
 - `APP_LOGIN_PASSWORD`
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`
-- `ALERT_FROM`, `ALERT_TO`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `ALERT_FROM`
+- `ALERT_TO`
 
-If using hosted popup login:
+Recommended production values:
 
-- `ALLOW_REMOTE_FACEBOOK_LOGIN=true`
-- `VNC_PASSWORD=<strong-password>`
-
-## 3. Build and Run
-
-```bash
-cd ~/dsktop/deal-traking-system
-
-docker compose down
-docker compose up -d --build
+```env
+NODE_ENV=production
+ALLOW_REMOTE_FACEBOOK_LOGIN=true
+NO_VNC_PUBLIC_URL=https://your-domain/novnc/vnc.html?autoconnect=true&path=novnc/websockify
+CORS_ORIGIN=https://your-domain
 ```
 
-Check status:
+## 4. Docker Configuration
+
+Use localhost-only host bindings in `docker-compose.yml`:
+
+```yaml
+ports:
+  - "127.0.0.1:8080:4000"
+  - "127.0.0.1:6080:6080"
+```
+
+Start or update deployment:
 
 ```bash
+docker compose down --remove-orphans
+docker compose up -d --build
 docker compose ps
 docker compose logs --tail=200 app
 ```
 
-## 4. Database Migrations
-
-When schema changes are pulled:
+Check internal services:
 
 ```bash
-docker compose exec app npm run prisma:deploy
+curl -I http://127.0.0.1:8080/
+curl -I http://127.0.0.1:6080/vnc.html
 ```
 
-## 5. Domain and HTTPS
-
-Use Nginx reverse proxy to route `https://your-domain` to `http://127.0.0.1:8080`.
-
-Then run certbot:
+## 5. Install Nginx + Certbot
 
 ```bash
 sudo apt update
-sudo apt install certbot python3-certbot-nginx -y
+sudo apt install -y nginx certbot python3-certbot-nginx
+sudo systemctl enable --now nginx
+```
+
+If Apache is installed, disable it to avoid port conflicts:
+
+```bash
+sudo systemctl stop apache2
+sudo systemctl disable apache2
+```
+
+## 6. Nginx Site Configuration
+
+Create `/etc/nginx/sites-available/your-domain`:
+
+```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+
+upstream swoop_app {
+    server 127.0.0.1:8080;
+    keepalive 32;
+}
+
+upstream swoop_novnc {
+    server 127.0.0.1:6080;
+    keepalive 32;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name your-domain;
+
+    location ^~ /novnc/ {
+        proxy_pass http://swoop_novnc/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_buffering off;
+    }
+
+    location / {
+        proxy_pass http://swoop_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+Enable and test:
+
+```bash
+sudo ln -sf /etc/nginx/sites-available/your-domain /etc/nginx/sites-enabled/your-domain
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+## 7. SSL with Certbot
+
+Before issuing cert:
+
+- If using Cloudflare, set DNS record to `DNS only` (gray cloud) temporarily
+- Ensure DNS A record points to the correct server IP
+
+Issue certificate:
+
+```bash
 sudo certbot --nginx -d your-domain
 ```
 
-## 6. Cloudflare + Custom Ports
-
-If you need direct noVNC (`:6080`) and it does not open:
-
-- Set DNS record to **DNS only** (gray cloud), or
-- Use SSH tunnel instead
-
-## 7. SSH Tunnel for noVNC (No Public 6080 Needed)
-
-Run from your local machine:
+Test renewals:
 
 ```bash
-ssh -L 6080:127.0.0.1:6080 user@server-ip
+sudo certbot renew --dry-run
 ```
 
-Open in local browser:
+After certificate is working, Cloudflare can be re-enabled with SSL mode `Full (strict)`.
 
-- `http://localhost:6080/vnc.html`
+## 8. Optional noVNC Authentication
 
-## 8. Security Checklist
+If you want extra protection on `/novnc/`:
 
-- Rotate leaked secrets immediately (DB URL password, SMTP app password)
-- Restrict SSH firewall rule to your IP only
-- Do not leave noVNC public without auth controls
-- Keep `.env` out of git
+```bash
+sudo apt install -y apache2-utils
+sudo htpasswd -c /etc/nginx/.htpasswd-novnc admin
+```
 
-## to edit ngnex
+Then add inside `location ^~ /novnc/`:
 
-````
+```nginx
+auth_basic "Restricted noVNC";
+auth_basic_user_file /etc/nginx/.htpasswd-novnc;
+```
 
-sudo nano /etc/nginx/sites-enabled/habeeb.qzz.io```
-````
+Note: browser auth inside iframes may vary by browser policy. If login screen hangs in iframe, test without `auth_basic` first.
+
+## 9. Firewall Hardening
+
+Only keep required public ports:
+
+```bash
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw delete allow 5900
+sudo ufw delete allow 6080
+sudo ufw status
+```
+
+## 10. 502 Troubleshooting Checklist
+
+If app route fails:
+
+```bash
+curl -I http://127.0.0.1:8080/
+```
+
+If noVNC route fails:
+
+```bash
+curl -I http://127.0.0.1:6080/vnc.html
+```
+
+Inspect logs:
+
+```bash
+docker compose logs --tail=200 app
+sudo tail -n 100 /var/log/nginx/error.log
+sudo tail -n 100 /var/log/nginx/access.log
+```
+
+## 11. Security Checklist
+
+- Rotate exposed secrets immediately (`APP_AUTH_SECRET`, `SMTP_PASS`, `APP_LOGIN_USERNAME`, `APP_LOGIN_PASSWORD`)
+- Keep `.env` out of source control
+- Use Cloudflare SSL mode `Full (strict)` when proxy is enabled

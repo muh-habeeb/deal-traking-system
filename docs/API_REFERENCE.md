@@ -5,6 +5,7 @@ This document describes all available API routes, methods, required data, and de
 ## Base URL
 
 - Local: `http://localhost:4000/api`
+- Docker host mapping (default): `http://localhost:8080/api`
 
 ## Authentication
 
@@ -44,6 +45,8 @@ Authorization: Bearer <token>
 | POST | `/notifications/test` | Yes | Send test email |
 | GET | `/settings/email` | Yes | Get receiver email |
 | PUT | `/settings/email` | Yes | Update receiver email |
+| GET | `/settings/email-delivery` | Yes | Get email delivery status |
+| PUT | `/settings/email-delivery` | Yes | Pause or resume email delivery |
 | GET | `/facebook-session/status` | Yes | Read Facebook session status |
 | POST | `/facebook-session/start` | Yes | Start interactive Facebook login flow |
 | POST | `/facebook-session/save` | Yes | Save active Facebook session state |
@@ -280,6 +283,40 @@ Validation:
 Common errors:
 
 - `400` invalid `receiverEmail`
+
+### `GET /settings/email-delivery`
+
+- Auth: Yes
+- Body: None
+
+Success example:
+
+```json
+{
+  "emailSendingEnabled": true
+}
+```
+
+### `PUT /settings/email-delivery`
+
+- Auth: Yes
+- Body:
+
+```json
+{
+  "emailSendingEnabled": false
+}
+```
+
+Behavior:
+
+- `true`: resume email notifications for newly scraped listings
+- `false`: pause email notifications while scraping and DB writes continue
+- listings scraped during pause are not back-sent after resume
+
+Common errors:
+
+- `400` when `emailSendingEnabled` is not a boolean
 
 ### `GET /facebook-session/status`
 
