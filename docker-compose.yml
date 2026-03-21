@@ -59,10 +59,14 @@ services:
       APP_LOGIN_USERNAME: "${APP_LOGIN_USERNAME:-admin}"
       APP_LOGIN_PASSWORD: "${APP_LOGIN_PASSWORD:-admin123}"
       NODE_OPTIONS: "--dns-result-order=ipv4first"
+    # ports:
+    #   # - "4000:4000"
+    #   - "8080:4000"
+    #   - "6080:6080"
+    # production
     ports:
-      # - "4000:4000"
-      - "8080:4000"
-      - "6080:6080"
+      - "127.0.0.1:8080:4000"
+      - "127.0.0.1:6080:6080"
 
       # - "80:4000" by nginex  proxy and certbot 
       # - "443:4000"

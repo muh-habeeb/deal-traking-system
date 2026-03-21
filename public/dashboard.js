@@ -42,6 +42,7 @@ function getSessionButtons() {
     return {
         start: document.getElementById('startSessionBtn'),
         viewer: document.getElementById('openSessionViewerBtn'),
+        logoutFacebook: document.getElementById('logoutFacebookSessionBtn'),
         refresh: document.getElementById('refreshSessionBtn'),
     };
 }
@@ -64,12 +65,14 @@ function setSessionButtonsVisibility(status) {
     if (hasSession) {
         buttons.start.hidden = true;
         buttons.viewer.hidden = true;
+        buttons.logoutFacebook.hidden = false;
         buttons.refresh.hidden = false;
         return;
     }
 
     buttons.start.hidden = false;
     buttons.viewer.hidden = !(loginInProgress && hasViewerUrl);
+    buttons.logoutFacebook.hidden = true;
     buttons.refresh.hidden = false;
 }
 
@@ -434,10 +437,30 @@ async function startFacebookLogin() {
     });
 }
 
+async function logoutFacebookSession() {
+    await runSessionAction(async () => {
+        const holder = document.getElementById('sessionStatus');
+        setSessionLoading(true, 'Clearing Facebook session...');
+        holder.textContent = 'Removing saved Facebook session...';
+
+        try {
+            const data = await api('/api/facebook-session/logout', { method: 'POST' });
+            updateSessionViewer(data);
+            setSessionButtonsVisibility(data);
+            holder.innerHTML = `<span class="badge warn">Facebook session cleared</span><br/>Login in progress: ${data.loginInProgress ? 'Yes' : 'No'}`;
+            stopSessionStatusPolling();
+        } catch (error) {
+            holder.textContent = error.message;
+        } finally {
+            setSessionLoading(false);
+        }
+    });
+}
+
 function openSessionViewer() {
     if (!sessionViewerUrl) {
         const holder = document.getElementById('sessionStatus');
-        holder.textContent = 'Login screen URL is not available yet. Click Start Facebook Login first.';
+        holder.textContent = 'Login screen URL is not available yet. Click Login with Facebook first.';
         return;
     }
 
@@ -454,6 +477,7 @@ function wireEvents() {
     document.getElementById('refreshSessionBtn').addEventListener('click', loadSessionStatus);
     document.getElementById('startSessionBtn').addEventListener('click', startFacebookLogin);
     document.getElementById('openSessionViewerBtn').addEventListener('click', openSessionViewer);
+    document.getElementById('logoutFacebookSessionBtn').addEventListener('click', logoutFacebookSession);
     document.getElementById('logoutBtn').addEventListener('click', () => {
         localStorage.removeItem('swoop_token');
         location.href = '/';

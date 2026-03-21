@@ -86,3 +86,10 @@ Open in local browser:
 - Restrict SSH firewall rule to your IP only
 - Do not leave noVNC public without auth controls
 - Keep `.env` out of git
+
+## to edit ngnex
+
+````
+
+sudo nano /etc/nginx/sites-enabled/habeeb.qzz.io```
+````

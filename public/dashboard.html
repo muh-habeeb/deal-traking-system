@@ -32,10 +32,11 @@
           <span class="spinner" style="display:inline-block;width:14px;height:14px;border:2px solid #d9c8a9;border-top-color:#1f7a8c;border-radius:50%;vertical-align:middle;animation: spin .8s linear infinite;"></span>
           <span id="sessionLoadingText" style="margin-left:8px;">Working...</span>
         </div>
-        <p class="small" id="info">Click Start Facebook Login, then open Login Screen and sign in. Session is auto-saved after successful login.</p>
+        <p class="small" id="info">Click Login with Facebook, then open Login Screen and sign in. Session is auto-saved after successful login.</p>
         <div class="row" style="margin-top: 10px;">
-          <button id="startSessionBtn">Start Facebook Login</button>
+          <button id="startSessionBtn">Login with Facebook</button>
           <button id="openSessionViewerBtn" class="secondary" style="display: none;">Open Login Screen</button>
+          <button id="logoutFacebookSessionBtn" class="secondary" hidden>Logout Facebook Session</button>
         </div>
         <div id="sessionViewerWrap" style="display: none; margin-top: 12px;">
           <iframe id="sessionViewerFrame" title="Facebook Login Screen" style="width: 100%; min-height: 480px; border: 1px solid #d9c8a9; border-radius: 10px; background: #fff;" referrerpolicy="no-referrer" allow="fullscreen" allowfullscreen></iframe>
@@ -121,6 +122,6 @@
     </section>
   </div>
 
-  <script src="/dashboard.js?v=20260321-3"></script>
+  <script src="/dashboard.js?v=20260321-4"></script>
 </body>
 </html>
