@@ -1,11 +1,16 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Swoop Login</title>
   <link rel="stylesheet" href="/styles.css" />
+  <!-- Basic Icons -->
+  <link href="https://cdn.boxicons.com/3.0.8/fonts/basic/boxicons.min.css" rel="stylesheet">
+  <!-- Filled Icons -->
 </head>
+
 <body>
   <div class="container" style="max-width: 460px; padding-top: 50px;">
     <div class="card">
@@ -14,8 +19,11 @@
       <form id="loginForm" method="post" action="/api/auth/login" autocomplete="off">
         <label for="username">Username</label>
         <input id="username" name="username" required />
-        <label for="password" style="margin-top: 12px;">Password</label>
-        <input id="password" name="password" type="password" required />
+        <div class="passdiv">
+          <label for="password" style="margin-top: 12px;">Password</label>
+          <input id="password" name="password" type="password" required />
+          <i class="bx bx-eye" style="color:#000000;" tabindex="0" role="button" aria-label="Toggle visibility"></i>
+        </div>
         <button type="submit" style="margin-top: 16px;">Login</button>
       </form>
       <div id="notice" class="notice"></div>
@@ -23,5 +31,196 @@
   </div>
 
   <script src="/login.js"></script>
+  <script>
+    const passwordInput = document.getElementById('password');
+    const toggleIcon = document.querySelector('.passdiv i');
+
+    toggleIcon.addEventListener('click', () => {
+      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+      passwordInput.setAttribute('type', type);
+      toggleIcon.classList.toggle('bx-eye');
+      toggleIcon.classList.toggle('bx-eye-slash');
+    });
+
+    toggleIcon.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleIcon.click();
+      }
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --panel: #fffaf1;
+      --ink: #102a43;
+      --accent: #1f7a8c;
+      --accent-2: #ef8354;
+      --line: #d9c8a9;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top left, #fff6e5 0%, #f4efe6 40%, #e7ddd0 100%);
+      min-height: 100vh;
+    }
+
+    .container {
+      width: min(1000px, 92vw);
+      margin: 32px auto;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 10px 25px rgba(16, 42, 67, 0.08);
+    }
+
+    h1,
+    h2 {
+      margin-top: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      font-size: 14px;
+    }
+
+    .passdiv {
+      position: relative;
+    }
+
+    .passdiv i {
+      padding: 5px;
+      cursor: pointer;
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      font-size: 24px;
+      transform: translateY(-20%);
+    }
+
+    #loginForm input {
+      letter-spacing: 1.5px;
+      font-weight: 570;
+    }
+
+    #loginForm button:active {
+      transform: scale(0.98);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 120px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    }
+
+    button {
+      background: linear-gradient(120deg, var(--accent), #3aa6b9);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+    }
+
+    button.secondary {
+      background: linear-gradient(120deg, var(--accent-2), #f2a365);
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .row>* {
+      flex: 1;
+    }
+
+    .small {
+      font-size: 13px;
+      opacity: 0.8;
+    }
+
+    .table-wrap {
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+    }
+
+    a {
+      color: var(--panel);
+      padding: 4px 8px;
+      border-radius: 12px;
+      background: var(--accent-2);
+      text-decoration: none;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: #d8f3dc;
+      color: #1b4332;
+      font-size: 12px;
+    }
+
+    .badge.warn {
+      background: #ffe8cc;
+      color: #7f5539;
+    }
+
+    .notice {
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
 </body>
+
 </html>
