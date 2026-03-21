@@ -37,6 +37,7 @@ function formatPosted(listing) {
 let sessionStatusPoller = null;
 let sessionViewerUrl = '';
 let sessionActionInProgress = false;
+let emailSendingEnabled = true;
 
 function getSessionButtons() {
     return {
@@ -144,6 +145,28 @@ function authHeaders() {
     };
 }
 
+function renderEmailDeliveryControls() {
+    const toggleBtn = document.getElementById('toggleEmailSendingBtn');
+    const status = document.getElementById('emailDeliveryStatus');
+
+    if (!toggleBtn || !status) {
+        return;
+    }
+
+    toggleBtn.classList.remove('danger', 'success');
+
+    if (emailSendingEnabled) {
+        toggleBtn.textContent = 'Pause Sending Emails';
+        toggleBtn.classList.add('danger');
+        status.innerHTML = '<span class="badge">Email Sending Active</span>';
+        return;
+    }
+
+    toggleBtn.textContent = 'Resume Sending Emails';
+    toggleBtn.classList.add('success');
+    status.innerHTML = '<span class="badge warn">Email Sending Paused</span>';
+}
+
 async function api(path, options = {}) {
     const response = await fetch(path, {
         ...options,
@@ -187,6 +210,12 @@ async function loadEmail() {
     document.getElementById('receiverEmail').value = data.receiverEmail || '';
 }
 
+async function loadEmailDeliverySettings() {
+    const data = await api('/api/settings/email-delivery');
+    emailSendingEnabled = Boolean(data.emailSendingEnabled);
+    renderEmailDeliveryControls();
+}
+
 async function saveEmail(event) {
     event.preventDefault();
     const notice = document.getElementById('emailNotice');
@@ -213,6 +242,33 @@ async function sendTestEmail() {
         notice.textContent = `Test email sent. Message ID: ${result.result?.messageId || 'N/A'}`;
     } catch (error) {
         notice.textContent = error.message;
+    }
+}
+
+async function toggleEmailSending() {
+    const notice = document.getElementById('emailNotice');
+    const toggleBtn = document.getElementById('toggleEmailSendingBtn');
+    const nextEnabled = !emailSendingEnabled;
+    const nextActionLabel = nextEnabled ? 'Resuming' : 'Pausing';
+
+    toggleBtn.disabled = true;
+    notice.textContent = `${nextActionLabel} email alerts...`;
+
+    try {
+        const data = await api('/api/settings/email-delivery', {
+            method: 'PUT',
+            body: JSON.stringify({ emailSendingEnabled: nextEnabled }),
+        });
+
+        emailSendingEnabled = Boolean(data.emailSendingEnabled);
+        renderEmailDeliveryControls();
+        notice.textContent = emailSendingEnabled
+            ? 'Email alerts resumed. Only newly scraped listings will be emailed.'
+            : 'Email alerts paused. Scraping will continue without sending emails.';
+    } catch (error) {
+        notice.textContent = error.message;
+    } finally {
+        toggleBtn.disabled = false;
     }
 }
 
@@ -470,6 +526,7 @@ function openSessionViewer() {
 function wireEvents() {
     document.getElementById('emailForm').addEventListener('submit', saveEmail);
     document.getElementById('sendTestEmailBtn').addEventListener('click', sendTestEmail);
+    document.getElementById('toggleEmailSendingBtn').addEventListener('click', toggleEmailSending);
     document.getElementById('filterForm').addEventListener('submit', createFilter);
     document.getElementById('filterBody').addEventListener('click', onFilterTableClick);
     document.getElementById('refreshFiltersBtn').addEventListener('click', loadFilters);
@@ -498,5 +555,5 @@ window.addEventListener('beforeunload', () => {
     await ensureLogin();
     wireEvents();
     setSessionButtonsDisabled(false);
-    await Promise.all([loadEmail(), loadSessionStatus(), loadFilters(), loadListings()]);
+    await Promise.all([loadEmail(), loadEmailDeliverySettings(), loadSessionStatus(), loadFilters(), loadListings()]);
 })();

@@ -1,3 +1,4 @@
 {
-  "receiverEmail": "rockpaper1222@gmail.com"
+  "receiverEmail": "rockpaper1222@gmail.com",
+  "emailSendingEnabled": false
 }

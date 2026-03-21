@@ -74,6 +74,19 @@ button.secondary {
   background: linear-gradient(120deg, var(--accent-2), #f2a365);
 }
 
+button.danger {
+  background: linear-gradient(120deg, #b42318, #f04438);
+}
+
+button.success {
+  background: linear-gradient(120deg, #166534, #22c55e);
+}
+
+button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .row {
   display: flex;
   gap: 10px;

@@ -4,6 +4,7 @@ const { scrapeByFilter } = require('../scrapers/facebookMarketplaceScraper');
 const { getAllFilterConfigs } = require('./filterService');
 const { findExistingListingByIdentity, createListing, updateListing } = require('./listingService');
 const { sendNewListingAlert } = require('./emailService');
+const { getEmailSendingEnabled } = require('./settingsService');
 const { cleanupOldData } = require('./cleanupService');
 const logger = require('../utils/logger');
 
@@ -256,6 +257,14 @@ async function processFilter(filterConfig) {
 
     const created = await createListing(scraped);
     freshListings.push(created);
+
+    if (!getEmailSendingEnabled()) {
+      logger.info('Email delivery paused. Listing saved without sending notification.', {
+        listingId: created.id,
+        url: created.url,
+      });
+      continue;
+    }
 
     try {
       const alreadyNotified = await hasNotificationMarker({

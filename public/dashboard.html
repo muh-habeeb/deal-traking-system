@@ -21,7 +21,11 @@
           <input id="receiverEmail" type="email" placeholder="you@example.com" required />
           <button type="submit" style="margin-top: 10px;">Save Email</button>
         </form>
-        <button id="sendTestEmailBtn" class="secondary" style="margin-top: 10px;">Send Test Email</button>
+        <div class="row" style="margin-top: 10px;">
+          <button id="sendTestEmailBtn" class="secondary">Send Test Email</button>
+          <button id="toggleEmailSendingBtn" class="danger">Pause Sending Emails</button>
+        </div>
+        <div id="emailDeliveryStatus" class="notice"></div>
         <div id="emailNotice" class="notice"></div>
       </section>
 
@@ -122,6 +126,6 @@
     </section>
   </div>
 
-  <script src="/dashboard.js?v=20260321-4"></script>
+  <script src="/dashboard.js?v=20260322-1"></script>
 </body>
 </html>
