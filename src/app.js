@@ -8,24 +8,50 @@ const logger = require('./utils/logger');
 
 const app = express();
 
-const isDev = process.env.NODE_ENV !== "production";
+const isDev = process.env.NODE_ENV !== 'production';
+const corsOrigins = String(process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+const cspDirectives = {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'"],
+    styleSrc: ["'self'", "'unsafe-inline'"],
+    imgSrc: ["'self'", 'data:', 'https:'],
+    connectSrc: ["'self'"],
+    fontSrc: ["'self'", 'data:'],
+    frameSrc: ["'self'"],
+    objectSrc: ["'none'"],
+    baseUri: ["'self'"],
+    frameAncestors: ["'self'"],
+};
 
 app.use(
     helmet({
-        contentSecurityPolicy: false,
-            // ? false
-            // : {
-            //     directives: {
-            //         defaultSrc: ["'self'"],
-            //         scriptSrc: ["'self'", "https://deal-traking-system.onrender.com"],
-            //         connectSrc: ["'self'", "https://deal-traking-system.onrender.com"],
-            //         imgSrc: ["'self'", "data:", "https:"],
-            //     },
-            // },
+        contentSecurityPolicy: isDev ? false : { directives: cspDirectives },
     })
 );
-// app.use(cors({ origin: isDev ? 'http://localhost:4000' : "https://deal-traking-system.onrender.com", credentials: true }));
-// app.use(cors({ origin: "*", credentials: true }));
+
+if (corsOrigins.length > 0) {
+    app.use(
+        cors({
+            origin(origin, callback) {
+                if (!origin || corsOrigins.includes(origin)) {
+                    return callback(null, true);
+                }
+
+                const corsError = new Error('CORS origin not allowed');
+                corsError.status = 403;
+                return callback(corsError);
+            },
+            credentials: true,
+        })
+    );
+} else if (isDev) {
+    app.use(cors({ origin: true, credentials: true }));
+}
+
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
