@@ -1,0 +1,97 @@
+{
+  "cookies": [
+    {
+      "name": "datr",
+      "value": "-Ky-aQ2uEsA4MamSjN1RRF1x",
+      "domain": ".facebook.com",
+      "path": "/",
+      "expires": 1808663800.099087,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "sb",
+      "value": "-Ky-aXwL7zFOriA_TcsuOizP",
+      "domain": ".facebook.com",
+      "path": "/",
+      "expires": 1808663887.458138,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "wd",
+      "value": "1280x720",
+      "domain": ".facebook.com",
+      "path": "/",
+      "expires": 1774708655,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "locale",
+      "value": "en_GB",
+      "domain": ".facebook.com",
+      "path": "/",
+      "expires": 1774708653.502393,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "c_user",
+      "value": "100072868723922",
+      "domain": ".facebook.com",
+      "path": "/",
+      "expires": 1805639887.457359,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "fr",
+      "value": "0xPiU2CdIUInckeIj.AWeZa75dr2d5JmO0YE1jeU2B8Aqwi5k8x3O3yLoxtHFqRlJCBvg.Bpvqz4..AAA.0.0.Bpvq1J.AWeIS56ZDNSVIVC2pSnSU2UY2NA",
+      "domain": ".facebook.com",
+      "path": "/",
+      "expires": 1781879887.457913,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "xs",
+      "value": "34%3A2KVNhXZSRC8IMA%3A2%3A1774103884%3A-1%3A-1",
+      "domain": ".facebook.com",
+      "path": "/",
+      "expires": 1805639887.458234,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://www.facebook.com",
+      "localStorage": [
+        {
+          "name": "signal_flush_timestamp",
+          "value": "1774103801820"
+        },
+        {
+          "name": "Session",
+          "value": "m9hfzu:1774103920893"
+        },
+        {
+          "name": "hb_timestamp",
+          "value": "1774103831803"
+        },
+        {
+          "name": "banzai:last_storage_flush",
+          "value": "1774103802472"
+        }
+      ]
+    }
+  ]
+}

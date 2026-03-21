@@ -299,7 +299,7 @@ Success example:
   "startedAt": null,
   "autoSaveEnabled": true,
   "lastAutoSavedAt": null,
-  "loginViewerUrl": "http://localhost:6080/vnc_lite.html"
+  "loginViewerUrl": "http://localhost:6080/vnc.html"
 }
 ```
 

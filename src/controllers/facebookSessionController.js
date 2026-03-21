@@ -28,7 +28,7 @@ function getLoginViewerUrl(req) {
     return '';
   }
 
-  return `${forwardedProto}://${hostname}:${env.noVncPort}/vnc_lite.html`;
+  return `${forwardedProto}://${hostname}:${env.noVncPort}/vnc.html`;
 }
 
 async function getSessionStatus(req, res) {
