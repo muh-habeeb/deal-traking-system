@@ -6,6 +6,7 @@ const settingsPath = path.resolve(process.cwd(), 'data/runtime-settings.json');
 const DEFAULT_SETTINGS = {
   receiverEmail: env.alertTo || '',
   emailSendingEnabled: true,
+  telegramSendingEnabled: env.telegram.enabled,
 };
 
 function ensureSettingsFile() {
@@ -30,6 +31,10 @@ function normalizeSettings(rawSettings) {
       typeof source.emailSendingEnabled === 'boolean'
         ? source.emailSendingEnabled
         : DEFAULT_SETTINGS.emailSendingEnabled,
+    telegramSendingEnabled:
+      typeof source.telegramSendingEnabled === 'boolean'
+        ? source.telegramSendingEnabled
+        : DEFAULT_SETTINGS.telegramSendingEnabled,
   };
 }
 
@@ -70,9 +75,24 @@ function setEmailSendingEnabled(emailSendingEnabled) {
   });
 }
 
+function getTelegramSendingEnabled() {
+  const settings = readSettings();
+  return settings.telegramSendingEnabled;
+}
+
+function setTelegramSendingEnabled(telegramSendingEnabled) {
+  const settings = readSettings();
+  return writeSettings({
+    ...settings,
+    telegramSendingEnabled: Boolean(telegramSendingEnabled),
+  });
+}
+
 module.exports = {
   getReceiverEmail,
   setReceiverEmail,
   getEmailSendingEnabled,
   setEmailSendingEnabled,
+  getTelegramSendingEnabled,
+  setTelegramSendingEnabled,
 };

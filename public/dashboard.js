@@ -38,6 +38,7 @@ let sessionStatusPoller = null;
 let sessionViewerUrl = '';
 let sessionActionInProgress = false;
 let emailSendingEnabled = true;
+let telegramSendingEnabled = false;
 
 function getSessionButtons() {
     return {
@@ -167,6 +168,28 @@ function renderEmailDeliveryControls() {
     status.innerHTML = '<span class="badge warn">Email Sending Paused</span>';
 }
 
+function renderTelegramDeliveryControls() {
+    const toggleBtn = document.getElementById('toggleTelegramSendingBtn');
+    const status = document.getElementById('telegramDeliveryStatus');
+
+    if (!toggleBtn || !status) {
+        return;
+    }
+
+    toggleBtn.classList.remove('danger', 'success');
+
+    if (telegramSendingEnabled) {
+        toggleBtn.textContent = 'Pause Telegram Alerts';
+        toggleBtn.classList.add('danger');
+        status.innerHTML = '<span class="badge">Telegram Alerts Active</span>';
+        return;
+    }
+
+    toggleBtn.textContent = 'Resume Telegram Alerts';
+    toggleBtn.classList.add('success');
+    status.innerHTML = '<span class="badge warn">Telegram Alerts Paused</span>';
+}
+
 async function api(path, options = {}) {
     const response = await fetch(path, {
         ...options,
@@ -214,6 +237,12 @@ async function loadEmailDeliverySettings() {
     const data = await api('/api/settings/email-delivery');
     emailSendingEnabled = Boolean(data.emailSendingEnabled);
     renderEmailDeliveryControls();
+}
+
+async function loadTelegramDeliverySettings() {
+    const data = await api('/api/settings/telegram-delivery');
+    telegramSendingEnabled = Boolean(data.telegramSendingEnabled);
+    renderTelegramDeliveryControls();
 }
 
 async function saveEmail(event) {
@@ -272,6 +301,45 @@ async function toggleEmailSending() {
     }
 }
 
+async function sendTestTelegram() {
+    const notice = document.getElementById('emailNotice');
+    notice.textContent = 'Sending test Telegram message...';
+
+    try {
+        const result = await api('/api/notifications/test-telegram', { method: 'POST' });
+        notice.textContent = result.message || 'Telegram test request completed.';
+    } catch (error) {
+        notice.textContent = error.message;
+    }
+}
+
+async function toggleTelegramSending() {
+    const notice = document.getElementById('emailNotice');
+    const toggleBtn = document.getElementById('toggleTelegramSendingBtn');
+    const nextEnabled = !telegramSendingEnabled;
+    const nextActionLabel = nextEnabled ? 'Resuming' : 'Pausing';
+
+    toggleBtn.disabled = true;
+    notice.textContent = `${nextActionLabel} Telegram alerts...`;
+
+    try {
+        const data = await api('/api/settings/telegram-delivery', {
+            method: 'PUT',
+            body: JSON.stringify({ telegramSendingEnabled: nextEnabled }),
+        });
+
+        telegramSendingEnabled = Boolean(data.telegramSendingEnabled);
+        renderTelegramDeliveryControls();
+        notice.textContent = telegramSendingEnabled
+            ? 'Telegram alerts resumed.'
+            : 'Telegram alerts paused.';
+    } catch (error) {
+        notice.textContent = error.message;
+    } finally {
+        toggleBtn.disabled = false;
+    }
+}
+
 async function createFilter(event) {
     event.preventDefault();
     const notice = document.getElementById('filterNotice');
@@ -282,6 +350,7 @@ async function createFilter(event) {
         location: document.getElementById('location').value.trim(),
         minPrice: document.getElementById('minPrice').value || null,
         maxPrice: document.getElementById('maxPrice').value || null,
+        priority: document.getElementById('priority').value || 'medium',
     };
 
     try {
@@ -304,6 +373,13 @@ function renderFilterRow(filter) {
     <td><input data-role="location" value="${filter.location || ''}" /></td>
     <td><input data-role="minPrice" type="number" min="0" value="${filter.minPrice ?? ''}" /></td>
     <td><input data-role="maxPrice" type="number" min="0" value="${filter.maxPrice ?? ''}" /></td>
+        <td>
+            <select data-role="priority">
+                <option value="high" ${filter.priority === 'high' ? 'selected' : ''}>High</option>
+                <option value="medium" ${!filter.priority || filter.priority === 'medium' ? 'selected' : ''}>Medium</option>
+                <option value="low" ${filter.priority === 'low' ? 'selected' : ''}>Low</option>
+            </select>
+        </td>
     <td>
       <div class="row">
         <button data-role="save" data-id="${filter.id}" style="max-width: 120px;">Save</button>
@@ -375,6 +451,7 @@ async function onFilterTableClick(event) {
             location: row.querySelector('input[data-role="location"]').value.trim(),
             minPrice: row.querySelector('input[data-role="minPrice"]').value || null,
             maxPrice: row.querySelector('input[data-role="maxPrice"]').value || null,
+            priority: row.querySelector('select[data-role="priority"]').value || 'medium',
         };
 
         notice.textContent = 'Saving filter...';
@@ -526,7 +603,9 @@ function openSessionViewer() {
 function wireEvents() {
     document.getElementById('emailForm').addEventListener('submit', saveEmail);
     document.getElementById('sendTestEmailBtn').addEventListener('click', sendTestEmail);
+    document.getElementById('sendTestTelegramBtn').addEventListener('click', sendTestTelegram);
     document.getElementById('toggleEmailSendingBtn').addEventListener('click', toggleEmailSending);
+    document.getElementById('toggleTelegramSendingBtn').addEventListener('click', toggleTelegramSending);
     document.getElementById('filterForm').addEventListener('submit', createFilter);
     document.getElementById('filterBody').addEventListener('click', onFilterTableClick);
     document.getElementById('refreshFiltersBtn').addEventListener('click', loadFilters);
@@ -555,5 +634,12 @@ window.addEventListener('beforeunload', () => {
     await ensureLogin();
     wireEvents();
     setSessionButtonsDisabled(false);
-    await Promise.all([loadEmail(), loadEmailDeliverySettings(), loadSessionStatus(), loadFilters(), loadListings()]);
+    await Promise.all([
+        loadEmail(),
+        loadEmailDeliverySettings(),
+        loadTelegramDeliverySettings(),
+        loadSessionStatus(),
+        loadFilters(),
+        loadListings(),
+    ]);
 })();

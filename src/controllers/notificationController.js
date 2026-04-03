@@ -1,4 +1,5 @@
 const { sendTestEmail } = require('../services/emailService');
+const { sendTestTelegramAlert } = require('../services/telegramService');
 
 async function sendNotificationTest(_req, res, next) {
   try {
@@ -12,6 +13,19 @@ async function sendNotificationTest(_req, res, next) {
   }
 }
 
+async function sendTelegramNotificationTest(_req, res, next) {
+  try {
+    const result = await sendTestTelegramAlert();
+    return res.json({
+      message: result && result.skipped ? 'Telegram test skipped' : 'Telegram test sent',
+      result,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   sendNotificationTest,
+  sendTelegramNotificationTest,
 };

@@ -1,4 +1,5 @@
 {
   "receiverEmail": "rockpaper1222@gmail.com",
-  "emailSendingEnabled": false
+  "emailSendingEnabled": false,
+  "telegramSendingEnabled": true
 }

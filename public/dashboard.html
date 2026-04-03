@@ -25,7 +25,12 @@
           <button id="sendTestEmailBtn" class="secondary">Send Test Email</button>
           <button id="toggleEmailSendingBtn" class="danger">Pause Sending Emails</button>
         </div>
+        <div class="row" style="margin-top: 10px;">
+          <button id="sendTestTelegramBtn" class="secondary">Send Test Telegram</button>
+          <button id="toggleTelegramSendingBtn" class="danger">Pause Telegram Alerts</button>
+        </div>
         <div id="emailDeliveryStatus" class="notice"></div>
+        <div id="telegramDeliveryStatus" class="notice"></div>
         <div id="emailNotice" class="notice"></div>
       </section>
 
@@ -70,6 +75,14 @@
           <label for="maxPrice">Max Price</label>
           <input id="maxPrice" type="number" min="0" />
         </div>
+        <div>
+          <label for="priority">Priority</label>
+          <select id="priority">
+            <option value="high">High</option>
+            <option value="medium" selected>Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
         <div style="grid-column: 1 / -1;">
           <button type="submit">Create Filter</button>
         </div>
@@ -90,6 +103,7 @@
               <th>Location</th>
               <th>Min</th>
               <th>Max</th>
+              <th>Priority</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -126,6 +140,6 @@
     </section>
   </div>
 
-  <script src="/dashboard.js?v=20260322-4"></script>
+  <script src="/dashboard.js?v=20260402-queue-1"></script>
 </body>
 </html>

@@ -5,10 +5,19 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
-playwright/storageState.json
 Dockerfile*
 docker-compose*.yml
 .vscode
 hosting.md
-docs/*
-./docs
+docs/
+nginex/
+*.md
+
+# Runtime-generated / sensitive local files
+playwright/
+data/
+
+# Tooling and local artifacts
+.idea/
+.DS_Store
+Thumbs.db

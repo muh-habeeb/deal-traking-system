@@ -5,6 +5,7 @@ const {
   updateFilterConfig,
   deleteFilterConfig,
 } = require('../services/filterService');
+const { normalizePriority } = require('../services/scheduleService');
 
 function parseNumber(value) {
   if (value === undefined || value === null || value === '') {
@@ -17,7 +18,7 @@ function parseNumber(value) {
 
 async function createFilter(req, res, next) {
   try {
-    const { keyword, location, minPrice, maxPrice, userId } = req.body;
+    const { keyword, location, minPrice, maxPrice, userId, priority } = req.body;
 
     if (!keyword || !location) {
       return res.status(400).json({
@@ -46,6 +47,7 @@ async function createFilter(req, res, next) {
       minPrice: parsedMin,
       maxPrice: parsedMax,
       userId,
+      priority: normalizePriority(priority),
     });
 
     return res.status(201).json(filter);
@@ -81,7 +83,7 @@ async function getFilterById(req, res, next) {
 async function updateFilter(req, res, next) {
   try {
     const { id } = req.params;
-    const { keyword, location, minPrice, maxPrice } = req.body;
+    const { keyword, location, minPrice, maxPrice, priority } = req.body;
 
     if (!keyword || !location) {
       return res.status(400).json({
@@ -109,6 +111,7 @@ async function updateFilter(req, res, next) {
       location,
       minPrice: parsedMin,
       maxPrice: parsedMax,
+      priority: normalizePriority(priority),
     });
 
     return res.json(updated);

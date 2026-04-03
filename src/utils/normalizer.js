@@ -247,6 +247,26 @@ function pickPostedText(raw) {
     return String(listedLine).trim();
   }
 
+  const listedAnywhere = lines.find((line) => /\blisted\b/i.test(String(line || '').trim()));
+  if (listedAnywhere) {
+    return String(listedAnywhere).trim();
+  }
+
+  const relativeLikeLine = lines.find((line) => {
+    const value = String(line || '').trim().toLowerCase();
+    if (!value) {
+      return false;
+    }
+
+    return /^(an?|one|\d+)\s*(second|seconds|sec|secs|minute|minutes|min|mins|hour|hours|hr|hrs|day|days|week|weeks|wk|wks|month|months|mo|year|years|yr|yrs)(\s+ago)?$/.test(
+      value
+    ) || /^(\d+)\s*[smhdw]$/.test(value);
+  });
+
+  if (relativeLikeLine) {
+    return `Listed ${String(relativeLikeLine).trim()}`;
+  }
+
   return null;
 }
 
@@ -259,6 +279,8 @@ function parsePostedAt(postedText, now = new Date()) {
   const normalized = text
     .replace(/^listed\s+/i, '')
     .replace(/^posted\s+/i, '')
+    .replace(/[\u00b7|]/g, ' ')
+    .replace(/\s+/g, ' ')
     .replace(/\sin\s.+$/i, '')
     .replace(/^about\s+/i, '')
     .trim()
@@ -306,6 +328,68 @@ function parsePostedAt(postedText, now = new Date()) {
 
     const unitMs = unitMsMap[unit];
     if (unitMs) {
+      return new Date(now.getTime() - amount * unitMs);
+    }
+  }
+
+  const relativeMatchWithoutAgo = normalized.match(
+    /^(an?|one|\d+)\s+(second|seconds|sec|secs|minute|minutes|min|mins|hour|hours|hr|hrs|day|days|week|weeks|wk|wks|month|months|mo|year|years|yr|yrs)$/
+  );
+
+  if (relativeMatchWithoutAgo) {
+    const amountToken = relativeMatchWithoutAgo[1];
+    const amount = /^\d+$/.test(amountToken) ? Number(amountToken) : 1;
+    const unit = relativeMatchWithoutAgo[2];
+
+    const unitMsMap = {
+      second: 1000,
+      seconds: 1000,
+      sec: 1000,
+      secs: 1000,
+      minute: 60 * 1000,
+      minutes: 60 * 1000,
+      min: 60 * 1000,
+      mins: 60 * 1000,
+      hour: 60 * 60 * 1000,
+      hours: 60 * 60 * 1000,
+      hr: 60 * 60 * 1000,
+      hrs: 60 * 60 * 1000,
+      day: 24 * 60 * 60 * 1000,
+      days: 24 * 60 * 60 * 1000,
+      week: 7 * 24 * 60 * 60 * 1000,
+      weeks: 7 * 24 * 60 * 60 * 1000,
+      wk: 7 * 24 * 60 * 60 * 1000,
+      wks: 7 * 24 * 60 * 60 * 1000,
+      month: 30 * 24 * 60 * 60 * 1000,
+      months: 30 * 24 * 60 * 60 * 1000,
+      mo: 30 * 24 * 60 * 60 * 1000,
+      year: 365 * 24 * 60 * 60 * 1000,
+      years: 365 * 24 * 60 * 60 * 1000,
+      yr: 365 * 24 * 60 * 60 * 1000,
+      yrs: 365 * 24 * 60 * 60 * 1000,
+    };
+
+    const unitMs = unitMsMap[unit];
+    if (unitMs) {
+      return new Date(now.getTime() - amount * unitMs);
+    }
+  }
+
+  const compactRelativeMatch = normalized.match(/^(\d+)\s*([smhdw])$/);
+  if (compactRelativeMatch) {
+    const amount = Number(compactRelativeMatch[1]);
+    const unitToken = compactRelativeMatch[2];
+
+    const unitMsMap = {
+      s: 1000,
+      m: 60 * 1000,
+      h: 60 * 60 * 1000,
+      d: 24 * 60 * 60 * 1000,
+      w: 7 * 24 * 60 * 60 * 1000,
+    };
+
+    const unitMs = unitMsMap[unitToken];
+    if (unitMs && Number.isFinite(amount)) {
       return new Date(now.getTime() - amount * unitMs);
     }
   }

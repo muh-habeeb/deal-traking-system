@@ -1,8 +1,20 @@
 const prisma = require('../config/prisma');
+const env = require('../config/env');
 const { normalizeListingUrl } = require('../utils/normalizer');
 
 async function getRecentListings(limit = 50) {
+  const postedCutoff = new Date(Date.now() - env.listingLookbackMinutes * 60 * 1000);
+
   return prisma.listing.findMany({
+    where: {
+      ...(env.requirePostedTime
+        ? {
+            postedAt: {
+              gte: postedCutoff,
+            },
+          }
+        : {}),
+    },
     orderBy: { createdAt: 'desc' },
     take: limit,
   });

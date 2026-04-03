@@ -1,0 +1,8 @@
+Create session per worker/proxy slot (one-time)
+Worker 0:
+$env:WORKER_ID="0"; $env:PROXY_SESSION_INDEX="0"; npm run auth:facebook
+Worker 1:
+$env:WORKER_ID="1"; $env:PROXY_SESSION_INDEX="1"; npm run auth:facebook
+Worker 2:
+$env:WORKER_ID="2"; $env:PROXY_SESSION_INDEX="2"; npm run auth:facebook
+Run with auto-restart

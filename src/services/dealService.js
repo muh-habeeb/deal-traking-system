@@ -1,10 +1,11 @@
 const prisma = require('../config/prisma');
 const env = require('../config/env');
 const { scrapeByFilter } = require('../scrapers/facebookMarketplaceScraper');
-const { getAllFilterConfigs } = require('./filterService');
+const { getAllFilterConfigs, updateFilterLastSeen } = require('./filterService');
 const { findExistingListingByIdentity, createListing, updateListing } = require('./listingService');
 const { sendNewListingAlert } = require('./emailService');
-const { getEmailSendingEnabled } = require('./settingsService');
+const { sendNewListingTelegramAlert } = require('./telegramService');
+const { getEmailSendingEnabled, getTelegramSendingEnabled } = require('./settingsService');
 const { cleanupOldData } = require('./cleanupService');
 const logger = require('../utils/logger');
 
@@ -142,6 +143,20 @@ function isWithinLastHours(value, hours) {
   return timestamp >= cutoff;
 }
 
+function isWithinLastMinutes(value, minutes) {
+  if (!value || !Number.isFinite(minutes) || minutes <= 0) {
+    return true;
+  }
+
+  const timestamp = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  if (Number.isNaN(timestamp)) {
+    return false;
+  }
+
+  const cutoff = Date.now() - minutes * 60 * 1000;
+  return timestamp >= cutoff;
+}
+
 function shouldRepairExisting(existing, incoming) {
   if (!existing || !incoming) {
     return false;
@@ -214,10 +229,41 @@ async function processFilter(filterConfig) {
   let locationMisses = 0;
   let nonVehicleMisses = 0;
   let staleMisses = 0;
+  const emailEnabled = getEmailSendingEnabled();
+  const telegramEnabled = getTelegramSendingEnabled();
+  const lastSeenCreatedAt = filterConfig.lastSeenCreatedAt
+    ? new Date(filterConfig.lastSeenCreatedAt)
+    : null;
+  let newestSeenCreatedAt =
+    lastSeenCreatedAt && !Number.isNaN(lastSeenCreatedAt.getTime()) ? lastSeenCreatedAt : null;
 
   for (const scraped of scrapedListings) {
     if (!scraped.url || !scraped.title) {
       continue;
+    }
+
+    const postedAt = scraped.postedAt ? new Date(scraped.postedAt) : null;
+    const hasValidPostedAt = Boolean(postedAt && !Number.isNaN(postedAt.getTime()));
+
+    if (!hasValidPostedAt && env.requirePostedTime) {
+      staleMisses += 1;
+      continue;
+    }
+
+    if (hasValidPostedAt) {
+      if (!newestSeenCreatedAt || postedAt.getTime() > newestSeenCreatedAt.getTime()) {
+        newestSeenCreatedAt = postedAt;
+      }
+
+      if (!isWithinLastMinutes(postedAt, env.listingLookbackMinutes)) {
+        staleMisses += 1;
+        continue;
+      }
+
+      if (lastSeenCreatedAt && postedAt.getTime() <= lastSeenCreatedAt.getTime()) {
+        staleMisses += 1;
+        continue;
+      }
     }
 
     if (!matchesFilterKeyword(scraped, filterConfig.keyword)) {
@@ -232,11 +278,6 @@ async function processFilter(filterConfig) {
 
     if (!isLikelyVehicleDeal(scraped)) {
       nonVehicleMisses += 1;
-      continue;
-    }
-
-    if (scraped.postedAt && !isWithinLastHours(scraped.postedAt, 24)) {
-      staleMisses += 1;
       continue;
     }
 
@@ -258,8 +299,8 @@ async function processFilter(filterConfig) {
     const created = await createListing(scraped);
     freshListings.push(created);
 
-    if (!getEmailSendingEnabled()) {
-      logger.info('Email delivery paused. Listing saved without sending notification.', {
+    if (!emailEnabled && !telegramEnabled) {
+      logger.info('Notification delivery paused. Listing saved without sending notification.', {
         listingId: created.id,
         url: created.url,
       });
@@ -281,18 +322,50 @@ async function processFilter(filterConfig) {
         continue;
       }
 
-      await sendNewListingAlert(created);
-      await prisma.notificationLog.create({
-        data: { listingId: created.id },
-      });
+      let delivered = false;
+
+      if (emailEnabled) {
+        try {
+          await sendNewListingAlert(created);
+          delivered = true;
+        } catch (error) {
+          logger.error('Email notification failed for listing', {
+            listingId: created.id,
+            error: error.message,
+          });
+        }
+      }
+
+      if (telegramEnabled) {
+        try {
+          const telegramResult = await sendNewListingTelegramAlert(created);
+          if (!telegramResult || !telegramResult.skipped) {
+            delivered = true;
+          }
+        } catch (error) {
+          logger.error('Telegram notification failed for listing', {
+            listingId: created.id,
+            error: error.message,
+          });
+        }
+      }
+
+      if (delivered) {
+        await prisma.notificationLog.create({
+          data: { listingId: created.id },
+        });
+        await wait(env.notificationDelayMs);
+      }
     } catch (error) {
       logger.error('Notification failed for listing', {
         listingId: created.id,
         error: error.message,
       });
     }
+  }
 
-    await wait(env.notificationDelayMs);
+  if (newestSeenCreatedAt) {
+    await updateFilterLastSeen(filterConfig.id, newestSeenCreatedAt);
   }
 
   logger.info('Filter processing completed', {
@@ -305,7 +378,20 @@ async function processFilter(filterConfig) {
     staleMisses,
   });
 
-  return freshListings;
+  return {
+    freshListings,
+    scrapedCount: scrapedListings.length,
+  };
+}
+
+async function runFilterScan(filterConfig) {
+  const { freshListings, scrapedCount } = await processFilter(filterConfig);
+
+  return {
+    filterId: filterConfig.id,
+    scannedListings: scrapedCount,
+    newListings: freshListings.length,
+  };
 }
 
 async function runDealScan() {
@@ -320,8 +406,8 @@ async function runDealScan() {
   let newListingsCount = 0;
   for (const filter of filters) {
     try {
-      const fresh = await processFilter(filter);
-      newListingsCount += fresh.length;
+      const result = await runFilterScan(filter);
+      newListingsCount += result.newListings;
     } catch (error) {
       logger.error('Filter scan failed', { filterId: filter.id, error: error.message });
     }
@@ -337,4 +423,5 @@ async function runDealScan() {
 
 module.exports = {
   runDealScan,
+  runFilterScan,
 };

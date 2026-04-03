@@ -22,14 +22,39 @@ model FilterConfig {
   minPrice   Int?
   maxPrice   Int?
   location   String
+  priority   String   @default("medium")
+  lastSeenCreatedAt DateTime?
   createdAt  DateTime @default(now())
   userId     String?
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  scrapeJob  ScrapeJob?
 
   @@index([keyword])
   @@index([location])
   @@index([createdAt])
   @@index([userId])
+  @@index([priority])
+}
+
+model ScrapeJob {
+  id          String       @id @default(cuid())
+  filterId    String       @unique
+  filter      FilterConfig @relation(fields: [filterId], references: [id], onDelete: Cascade)
+  status      String       @default("pending")
+  priority    String       @default("medium")
+  nextRunAt   DateTime     @default(now())
+  lockedAt    DateTime?
+  workerId    String?
+  lastError   String?
+  attemptCount Int         @default(0)
+  lastStartedAt DateTime?
+  lastFinishedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([status, nextRunAt])
+  @@index([priority, nextRunAt])
+  @@index([updatedAt])
 }
 
 model Listing {

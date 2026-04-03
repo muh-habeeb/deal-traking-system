@@ -3,6 +3,8 @@ const {
   setReceiverEmail,
   getEmailSendingEnabled,
   setEmailSendingEnabled,
+  getTelegramSendingEnabled,
+  setTelegramSendingEnabled,
 } = require('../services/settingsService');
 
 function isValidEmail(value) {
@@ -39,9 +41,26 @@ async function updateEmailDeliverySettings(req, res) {
   return res.json({ emailSendingEnabled: settings.emailSendingEnabled });
 }
 
+async function getTelegramDeliverySettings(_req, res) {
+  return res.json({ telegramSendingEnabled: getTelegramSendingEnabled() });
+}
+
+async function updateTelegramDeliverySettings(req, res) {
+  const { telegramSendingEnabled } = req.body || {};
+
+  if (typeof telegramSendingEnabled !== 'boolean') {
+    return res.status(400).json({ message: 'telegramSendingEnabled must be a boolean' });
+  }
+
+  const settings = setTelegramSendingEnabled(telegramSendingEnabled);
+  return res.json({ telegramSendingEnabled: settings.telegramSendingEnabled });
+}
+
 module.exports = {
   getEmailSettings,
   updateEmailSettings,
   getEmailDeliverySettings,
   updateEmailDeliverySettings,
+  getTelegramDeliverySettings,
+  updateTelegramDeliverySettings,
 };

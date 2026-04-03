@@ -1,4 +1,6 @@
 const prisma = require('../config/prisma');
+const { normalizePriority } = require('./scheduleService');
+const { upsertJobForFilter, deleteJobForFilter } = require('./queueService');
 
 const FILTER_SELECT = {
   id: true,
@@ -6,20 +8,26 @@ const FILTER_SELECT = {
   minPrice: true,
   maxPrice: true,
   location: true,
+  priority: true,
+  lastSeenCreatedAt: true,
   createdAt: true,
   userId: true,
 };
 
 async function createFilterConfig(payload) {
+  const priority = normalizePriority(payload.priority);
   const data = {
     keyword: payload.keyword.trim(),
     minPrice: payload.minPrice ?? null,
     maxPrice: payload.maxPrice ?? null,
     location: payload.location.trim(),
+    priority,
     userId: payload.userId ?? null,
   };
 
-  return prisma.filterConfig.create({ data, select: FILTER_SELECT });
+  const filter = await prisma.filterConfig.create({ data, select: FILTER_SELECT });
+  await upsertJobForFilter(filter.id, filter.priority, true);
+  return filter;
 }
 
 async function getAllFilterConfigs() {
@@ -37,24 +45,48 @@ async function getFilterConfigById(id) {
 }
 
 async function updateFilterConfig(id, payload) {
+  const priority = normalizePriority(payload.priority);
   const data = {
     keyword: payload.keyword.trim(),
     minPrice: payload.minPrice ?? null,
     maxPrice: payload.maxPrice ?? null,
     location: payload.location.trim(),
+    priority,
   };
 
-  return prisma.filterConfig.update({
+  const updated = await prisma.filterConfig.update({
     where: { id },
     data,
     select: FILTER_SELECT,
   });
+
+  await upsertJobForFilter(updated.id, updated.priority, true);
+  return updated;
 }
 
 async function deleteFilterConfig(id) {
-  return prisma.filterConfig.delete({
+  const deleted = await prisma.filterConfig.delete({
     where: { id },
     select: { id: true },
+  });
+
+  await deleteJobForFilter(id);
+  return deleted;
+}
+
+async function updateFilterLastSeen(filterId, lastSeenCreatedAt) {
+  if (!lastSeenCreatedAt) {
+    return;
+  }
+
+  await prisma.filterConfig.updateMany({
+    where: {
+      id: filterId,
+      OR: [{ lastSeenCreatedAt: null }, { lastSeenCreatedAt: { lt: lastSeenCreatedAt } }],
+    },
+    data: {
+      lastSeenCreatedAt,
+    },
   });
 }
 
@@ -64,4 +96,5 @@ module.exports = {
   getFilterConfigById,
   updateFilterConfig,
   deleteFilterConfig,
+  updateFilterLastSeen,
 };

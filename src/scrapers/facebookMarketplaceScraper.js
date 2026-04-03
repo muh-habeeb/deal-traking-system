@@ -5,19 +5,42 @@ const env = require('../config/env');
 const { buildMarketplaceSearchUrl } = require('../utils/urlBuilder');
 const { normalizeListing } = require('../utils/normalizer');
 const { buildChromiumLaunchOptions } = require('../utils/playwright');
+const { getProxyForWorker } = require('../services/proxyService');
 const logger = require('../utils/logger');
 
-function getStorageStatePath() {
+function getStorageStatePath(workerIndex = env.workerIndex, proxyIndex = null) {
+  if (env.proxy.enabled && env.proxy.bindSessionToProxy) {
+    const proxySegment = Number.isFinite(proxyIndex) ? `_proxy${proxyIndex}` : '';
+    const fileName = `${env.playwrightSessionPrefix}${workerIndex}${proxySegment}.json`;
+    return path.resolve(process.cwd(), env.playwrightSessionDir, fileName);
+  }
+
   return path.resolve(process.cwd(), env.playwrightStorageStatePath);
 }
 
-async function hasStorageState() {
-  const storageStatePath = getStorageStatePath();
+async function hasStorageState(storageStatePath) {
+  if (!storageStatePath) {
+    return false;
+  }
+
   return fs.existsSync(storageStatePath);
 }
 
-async function extractRawListingsFromPage(page) {
-  return page.evaluate(() => {
+function buildContextOptions(storageStatePath) {
+  const contextOptions = {
+    locale: env.playwrightLocale,
+    timezoneId: env.playwrightTimezoneId,
+  };
+
+  if (storageStatePath) {
+    contextOptions.storageState = storageStatePath;
+  }
+
+  return contextOptions;
+}
+
+async function extractRawListingsFromPage(page, maxListings) {
+  return page.evaluate((limit) => {
     const priceHintRegex = /(\b(?:cad|usd|eur|gbp|aud|nzd|ars|mxn|inr|jpy|cny|brl|clp|cop|pen)\b|ca\$|c\$|\$|free\b|gratuit\b)/i;
     const amountRegex = /(\d{1,3}(?:[,\s]\d{3})+|\d+)(?:\.\d{2})?/;
     const mileageRegex = /\b(\d{1,3}(?:[,\s]\d{3})*|\d+)(?:\s*[kK])?\s*(miles?|mi|km|kilometers?)\b/i;
@@ -208,7 +231,9 @@ async function extractRawListingsFromPage(page) {
     const cards = Array.from(document.querySelectorAll('a[href*="/marketplace/item/"]'));
     const seenUrls = new Set();
 
-    return cards.slice(0, 180).map((anchor) => {
+    const cardLimit = Math.max(30, Math.min(120, Number(limit || 30) + 15));
+
+    return cards.slice(0, cardLimit).map((anchor) => {
       const href = anchor.getAttribute('href') || '';
       const absoluteUrl = href.startsWith('http') ? href : `https://www.facebook.com${href}`;
 
@@ -248,7 +273,7 @@ async function extractRawListingsFromPage(page) {
         rawLines: lines,
       };
     }).filter(Boolean);
-  });
+  }, maxListings);
 }
 
 function buildGlobalFallbackUrl({ baseUrl, keyword, location, minPrice, maxPrice }) {
@@ -278,9 +303,9 @@ function buildGlobalFallbackUrl({ baseUrl, keyword, location, minPrice, maxPrice
   return url.toString();
 }
 
-async function loadAndExtractListings(page, url) {
+async function loadAndExtractListings(page, url, maxListings) {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(1800 + Math.floor(Math.random() * 1200));
 
   for (let i = 0; i < 4; i += 1) {
     try {
@@ -289,46 +314,52 @@ async function loadAndExtractListings(page, url) {
     } catch (_error) {
       // Keep trying after a small scroll; FB often lazy-renders cards.
       await page.mouse.wheel(0, 2200);
-      await page.waitForTimeout(1200);
+      await page.waitForTimeout(800 + Math.floor(Math.random() * 800));
     }
   }
 
   let previousCount = 0;
   for (let i = 0; i < 5; i += 1) {
     const currentCount = await page.locator('a[href*="/marketplace/item/"]').count();
+    if (currentCount >= maxListings) {
+      break;
+    }
+
     if (currentCount > 0 && currentCount === previousCount) {
       break;
     }
 
     previousCount = currentCount;
     await page.mouse.wheel(0, 2600);
-    await page.waitForTimeout(1400);
+    await page.waitForTimeout(1000 + Math.floor(Math.random() * 900));
   }
 
-  return extractRawListingsFromPage(page);
+  return extractRawListingsFromPage(page, maxListings);
 }
 
-async function scrapeByFilter(filterConfig) {
-  const stateAvailable = await hasStorageState();
-  const browser = await chromium.launch(buildChromiumLaunchOptions());
+async function scrapeWithBrowser(filterConfig, launchProxy, storageStatePath) {
+  const browser = await chromium.launch(buildChromiumLaunchOptions({ proxy: launchProxy }));
 
-  const context = await browser.newContext(
-    stateAvailable ? { storageState: getStorageStatePath() } : {}
-  );
-
-  const page = await context.newPage();
-  const targetUrl = buildMarketplaceSearchUrl({
-    baseUrl: env.playwrightBaseUrl,
-    keyword: filterConfig.keyword,
-    location: filterConfig.location,
-    minPrice: filterConfig.minPrice,
-    maxPrice: filterConfig.maxPrice,
-  });
-
-  logger.info('Scraping marketplace URL', { filterId: filterConfig.id, targetUrl });
-
+  let context = null;
   try {
-    let rawListings = await loadAndExtractListings(page, targetUrl);
+    context = await browser.newContext(buildContextOptions(storageStatePath));
+    const page = await context.newPage();
+    const targetUrl = buildMarketplaceSearchUrl({
+      baseUrl: env.playwrightBaseUrl,
+      keyword: filterConfig.keyword,
+      location: filterConfig.location,
+      minPrice: filterConfig.minPrice,
+      maxPrice: filterConfig.maxPrice,
+    });
+
+    logger.info('Scraping marketplace URL', {
+      filterId: filterConfig.id,
+      targetUrl,
+      proxy: launchProxy ? launchProxy.server : 'direct',
+      storageStatePath: storageStatePath || 'none',
+    });
+
+    let rawListings = await loadAndExtractListings(page, targetUrl, env.maxListingsPerFilter);
 
     if (rawListings.length === 0) {
       const globalFallbackUrl = buildGlobalFallbackUrl({
@@ -344,7 +375,7 @@ async function scrapeByFilter(filterConfig) {
         globalFallbackUrl,
       });
 
-      rawListings = await loadAndExtractListings(page, globalFallbackUrl);
+      rawListings = await loadAndExtractListings(page, globalFallbackUrl, env.maxListingsPerFilter);
     }
 
     const unique = new Map();
@@ -357,16 +388,62 @@ async function scrapeByFilter(filterConfig) {
     }
 
     return Array.from(unique.values()).slice(0, env.maxListingsPerFilter);
-  } catch (error) {
-    logger.error('Marketplace scraping failed', {
-      filterId: filterConfig.id,
-      error: error.message,
-    });
-    throw error;
   } finally {
-    await context.close();
+    if (context) {
+      await context.close();
+    }
+
     await browser.close();
   }
+}
+
+async function scrapeByFilter(filterConfig) {
+  const maxAttempts = env.proxy.enabled ? env.proxy.maxFailoverAttempts : 1;
+  let lastError = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const rotateOffset = env.proxy.rotateOnFailure ? attempt : 0;
+    const selectedProxy = getProxyForWorker(env.workerIndex, rotateOffset);
+    const proxyIndex = selectedProxy ? selectedProxy.index : null;
+    const storageStatePath = getStorageStatePath(env.workerIndex, proxyIndex);
+    const stateAvailable = await hasStorageState(storageStatePath);
+
+    try {
+      return await scrapeWithBrowser(
+        filterConfig,
+        selectedProxy,
+        stateAvailable ? storageStatePath : null
+      );
+    } catch (error) {
+      lastError = error;
+      const canRetry = attempt < maxAttempts - 1;
+
+      logger.warn('Scrape attempt failed', {
+        filterId: filterConfig.id,
+        attempt: attempt + 1,
+        maxAttempts,
+        proxy: selectedProxy ? selectedProxy.server : 'direct',
+        canRetry,
+        error: error.message,
+      });
+
+      if (!canRetry) {
+        break;
+      }
+    }
+  }
+
+  logger.error('Marketplace scraping failed after retries', {
+    filterId: filterConfig.id,
+    maxAttempts,
+    error: lastError ? lastError.message : 'Unknown scrape error',
+  });
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  throw new Error('Marketplace scraping failed without specific error');
 }
 
 module.exports = {

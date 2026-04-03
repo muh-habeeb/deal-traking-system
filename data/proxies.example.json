@@ -1,0 +1,12 @@
+[
+  {
+    "server": "http://p.webshare.io:80",
+    "username": "your_webshare_username",
+    "password": "your_webshare_password"
+  },
+  {
+    "server": "http://p.webshare.io:8080",
+    "username": "your_webshare_username",
+    "password": "your_webshare_password"
+  }
+]

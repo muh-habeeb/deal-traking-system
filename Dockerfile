@@ -1,31 +1,49 @@
-FROM node:22-bookworm-slim
+FROM node:22-bookworm-slim AS base
 
 WORKDIR /app
 
+ENV NODE_ENV=production
+
+ARG ENABLE_REMOTE_LOGIN_TOOLS=false
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends \
-		xvfb \
-		fluxbox \
-		x11vnc \
-		novnc \
-		websockify \
+	&& apt-get install -y --no-install-recommends ca-certificates \
+	&& if [ "$ENABLE_REMOTE_LOGIN_TOOLS" = "true" ]; then \
+		apt-get install -y --no-install-recommends \
+			xvfb \
+			fluxbox \
+			x11vnc \
+			novnc \
+			websockify; \
+	fi \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Install Playwright browser and runtime dependencies for Chromium.
-RUN npx --yes playwright@1.58.2 install --with-deps chromium
+ARG PLAYWRIGHT_VERSION=1.58.2
+RUN npx --yes playwright@${PLAYWRIGHT_VERSION} install --with-deps chromium
 
-# Copy Prisma config/schema BEFORE npm ci, because postinstall runs prisma generate
+FROM base AS deps
+
+# Copy Prisma config/schema BEFORE npm ci, because postinstall runs prisma generate.
 COPY package*.json ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./
 
-RUN npm ci
+# Keep dev dependencies in image because entrypoint runs `prisma migrate deploy`.
+RUN npm ci --include=dev --omit=optional --no-audit --no-fund
 
-COPY . .
+FROM base AS runtime
 
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package*.json ./
+COPY --from=deps /app/prisma ./prisma
+COPY --from=deps /app/prisma.config.ts ./
+
+COPY src ./src
+COPY public ./public
+COPY scripts ./scripts
+
+RUN mkdir -p /app/data /app/playwright /app/playwright/sessions
 RUN chmod +x /app/scripts/container-entrypoint.sh
-
-RUN npm run prisma:generate
 
 EXPOSE 4000
 EXPOSE 5900
