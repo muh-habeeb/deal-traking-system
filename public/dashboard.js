@@ -34,6 +34,20 @@ function formatPosted(listing) {
     return listing.postedText || 'N/A';
 }
 
+function toImageProxyUrl(rawUrl) {
+    const value = String(rawUrl || '').trim();
+    if (!value) {
+        return '';
+    }
+
+    try {
+        const parsed = new URL(value);
+        return `/api/listings/image?url=${encodeURIComponent(parsed.toString())}`;
+    } catch (_error) {
+        return '';
+    }
+}
+
 let sessionStatusPoller = null;
 let sessionViewerUrl = '';
 let sessionActionInProgress = false;
@@ -479,8 +493,9 @@ async function loadListings() {
 
         for (const listing of listings) {
             const tr = document.createElement('tr');
-            const imageCell = listing.image
-                ? `<img src="${escapeHtml(listing.image)}" alt="listing" style="width:72px;height:54px;object-fit:cover;border-radius:4px;" />`
+            const imageSrc = toImageProxyUrl(listing.image);
+            const imageCell = imageSrc
+                ? `<img src="${escapeHtml(imageSrc)}" alt="listing" loading="lazy" style="width:72px;height:54px;object-fit:cover;border-radius:4px;" />`
                 : 'N/A';
             const description = listing.description
                 ? `${escapeHtml(listing.description).slice(0, 120)}${listing.description.length > 120 ? '...' : ''}`

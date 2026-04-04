@@ -24,6 +24,10 @@
         "/^node -e 'const prisma=require\\(\"\\./src/config/prisma\"\\); \\(async\\(\\)=>\\{ try\\{ const l=await prisma\\.listing\\.findMany\\(\\{take:1\\}\\); console\\.log\\(\"listing-ok\",l\\.length\\); const f=await prisma\\.filterConfig\\.findMany\\(\\{take:1\\}\\); console\\.log\\(\"filter-ok\",f\\.length\\);\\} finally \\{ await prisma\\.\\$disconnect\\(\\); \\} \\}\\)\\(\\)\\.catch\\(e=>\\{ console\\.error\\(e\\); process\\.exit\\(1\\); \\}\\);'$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^node -e \"const \\{ sendTestTelegramAlert \\} = require\\('\\./src/services/telegramService'\\); \\(async\\(\\)=>\\{ try \\{ const r = await sendTestTelegramAlert\\(\\); console\\.log\\('ok', r\\); \\} catch \\(e\\) \\{ console\\.log\\('status', e\\.status \\|\\| 'n/a'\\); console\\.log\\('message', e\\.message\\); \\} \\}\\)\\(\\);\"$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

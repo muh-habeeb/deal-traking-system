@@ -43,6 +43,12 @@ const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseNumber(process.env.PORT, 4000),
   databaseUrl: process.env.DATABASE_URL,
+  database: {
+    connectionTimeoutMs: parseSecondsToMs(process.env.DB_CONNECT_TIMEOUT_SECONDS, 6),
+    idleTimeoutMs: parseSecondsToMs(process.env.DB_IDLE_TIMEOUT_SECONDS, 30),
+    queryTimeoutMs: parseSecondsToMs(process.env.DB_QUERY_TIMEOUT_SECONDS, 12),
+    maxPoolSize: Math.max(1, Math.trunc(parseNumber(process.env.DB_POOL_MAX, 10))),
+  },
   workerIndex: Math.max(0, Math.trunc(parseNumber(workerIndexSource, 0))),
   maxListingsPerFilter: parseNumber(process.env.MAX_LISTINGS_PER_FILTER, 25),
   listingLookbackMinutes: parseNumber(
@@ -96,6 +102,8 @@ const env = {
     token: telegramToken,
     chatId: telegramChatId,
     apiBaseUrl: process.env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org',
+    requestTimeoutMs: parseSecondsToMs(process.env.TELEGRAM_REQUEST_TIMEOUT_SECONDS, 15),
+    requestRetries: Math.max(0, Math.trunc(parseNumber(process.env.TELEGRAM_REQUEST_RETRIES, 2))),
     batchWindowMs: parseSecondsToMs(process.env.TELEGRAM_BATCH_WINDOW_SECONDS, 10),
     maxBatchSize: Math.max(1, Math.trunc(parseNumber(process.env.TELEGRAM_BATCH_MAX_SIZE, 3))),
   },

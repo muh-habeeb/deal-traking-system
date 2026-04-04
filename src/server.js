@@ -53,14 +53,26 @@ async function bootstrap() {
     });
 
     if (env.queue.syncOnBoot) {
-      await syncQueueJobs();
+      try {
+        await syncQueueJobs();
+      } catch (error) {
+        logger.error('Failed to sync queue jobs on boot; continuing startup.', {
+          error: error.message,
+          stack: error.stack,
+          phase: 'bootstrap.syncQueueJobs',
+        });
+      }
     }
 
     if (env.queue.startWorkerInServer) {
       startEmbeddedWorker();
     }
   } catch (error) {
-    logger.error('Failed to start server', { error: error.message });
+    logger.error('Failed to start server', {
+      error: error.message,
+      stack: error.stack,
+      phase: 'bootstrap',
+    });
     process.exit(1);
   }
 }

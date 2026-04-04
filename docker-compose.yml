@@ -24,7 +24,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        ENABLE_REMOTE_LOGIN_TOOLS: "${ENABLE_REMOTE_LOGIN_TOOLS:-false}"
+        ENABLE_REMOTE_LOGIN_TOOLS: "${ENABLE_REMOTE_LOGIN_TOOLS:-true}"
     image: swoop:latest
     container_name: swoop-app
     restart: unless-stopped

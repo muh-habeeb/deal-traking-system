@@ -21,7 +21,9 @@ async function sendTelegramNotificationTest(_req, res, next) {
       result,
     });
   } catch (error) {
-    return next(error);
+    return res.status(error.status || 502).json({
+      message: error.message || 'Telegram test failed',
+    });
   }
 }
 

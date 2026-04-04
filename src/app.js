@@ -6,6 +6,26 @@ const morgan = require('morgan');
 const routes = require('./routes');
 const logger = require('./utils/logger');
 
+function isDatabaseUnavailableError(err) {
+    const code = String(err?.code || '').toUpperCase();
+    const causeCode = String(err?.cause?.code || '').toUpperCase();
+    const message = String(err?.message || '');
+
+    if (code === 'P1001' || code === 'P1002' || code === 'P1017') {
+        return true;
+    }
+
+    if (['ETIMEDOUT', 'ECONNREFUSED', 'ECONNRESET', 'ENETUNREACH', 'EHOSTUNREACH'].includes(causeCode)) {
+        return true;
+    }
+
+    return (
+        /can't reach database server/i.test(message) ||
+        /connection timeout/i.test(message) ||
+        /connection terminated/i.test(message)
+    );
+}
+
 const app = express();
 
 const isDev = process.env.NODE_ENV !== 'production';
@@ -75,6 +95,12 @@ app.use((req, res) => {
 
 app.use((err, _req, res, _next) => {
     logger.error('Unhandled request error', { error: err.message, stack: err.stack });
+
+    if (isDatabaseUnavailableError(err)) {
+        return res.status(503).json({
+            message: 'Database is temporarily unavailable. Please try again shortly.',
+        });
+    }
 
     const status = err.status || 500;
     res.status(status).json({

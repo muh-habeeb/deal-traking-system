@@ -29,7 +29,39 @@ function ask(question) {
   });
 }
 
+function hasLinuxXServer() {
+  const display = String(process.env.DISPLAY || '').trim();
+  if (!display || !display.startsWith(':')) {
+    return false;
+  }
+
+  const displayNumber = display.slice(1).split('.')[0];
+  if (!/^\d+$/.test(displayNumber)) {
+    return false;
+  }
+
+  return fs.existsSync(`/tmp/.X11-unix/X${displayNumber}`);
+}
+
+function canLaunchHeadedBrowser() {
+  if (process.platform === 'win32' || process.platform === 'darwin') {
+    return true;
+  }
+
+  if (process.platform !== 'linux') {
+    return Boolean(process.env.DISPLAY);
+  }
+
+  return hasLinuxXServer();
+}
+
 async function main() {
+  if (!canLaunchHeadedBrowser()) {
+    throw new Error(
+      'No GUI display is available for interactive Facebook login. For Docker/VPS, rebuild with ENABLE_REMOTE_LOGIN_TOOLS=true and run with ALLOW_REMOTE_FACEBOOK_LOGIN=true.'
+    );
+  }
+
   const browser = await chromium.launch(buildChromiumLaunchOptions({ forceHeadless: false }));
   const context = await browser.newContext();
   const page = await context.newPage();

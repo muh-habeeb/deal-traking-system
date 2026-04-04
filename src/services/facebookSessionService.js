@@ -17,6 +17,49 @@ const FACEBOOK_LOGIN_URL = 'https://www.facebook.com/login';
 const FACEBOOK_COOKIE_SCOPE_URL = 'https://www.facebook.com';
 const AUTO_SAVE_POLL_MS = 3000;
 
+function hasLinuxXServer() {
+  const display = String(process.env.DISPLAY || '').trim();
+  if (!display || !display.startsWith(':')) {
+    return false;
+  }
+
+  const displayNumber = display.slice(1).split('.')[0];
+  if (!/^\d+$/.test(displayNumber)) {
+    return false;
+  }
+
+  return fs.existsSync(`/tmp/.X11-unix/X${displayNumber}`);
+}
+
+function canLaunchHeadedBrowser() {
+  if (process.platform === 'win32' || process.platform === 'darwin') {
+    return true;
+  }
+
+  if (process.platform !== 'linux') {
+    return Boolean(process.env.DISPLAY);
+  }
+
+  return hasLinuxXServer();
+}
+
+function isMissingDisplayError(errorMessage) {
+  const message = String(errorMessage || '').toLowerCase();
+  return (
+    message.includes('missing x server') ||
+    message.includes('without having a xserver running') ||
+    message.includes('ozone_platform_x11')
+  );
+}
+
+function buildMissingDisplayMessage() {
+  return [
+    'Unable to open interactive Facebook login browser: no GUI display is available.',
+    'For Docker/VPS, rebuild with ENABLE_REMOTE_LOGIN_TOOLS=true so Xvfb/noVNC tools are installed.',
+    'Then keep ALLOW_REMOTE_FACEBOOK_LOGIN=true and start the container again.',
+  ].join(' ');
+}
+
 function getSessionFileDetails() {
   const storageStatePath = getStorageStatePath();
   const exists = fs.existsSync(storageStatePath);
@@ -127,6 +170,12 @@ async function startFacebookLoginFlow() {
     throw error;
   }
 
+  if (!canLaunchHeadedBrowser()) {
+    const error = new Error(buildMissingDisplayMessage());
+    error.status = 400;
+    throw error;
+  }
+
   try {
     activeBrowser = await chromium.launch(buildChromiumLaunchOptions({ forceHeadless: false }));
     activeContext = await activeBrowser.newContext();
@@ -142,7 +191,9 @@ async function startFacebookLoginFlow() {
   } catch (error) {
     await closeActiveLoginFlow();
     const wrapped = new Error(
-      `Unable to open interactive Facebook login browser in this environment: ${error.message}`
+      isMissingDisplayError(error.message)
+        ? `${buildMissingDisplayMessage()} Original error: ${error.message}`
+        : `Unable to open interactive Facebook login browser in this environment: ${error.message}`
     );
     wrapped.status = 400;
     throw wrapped;
