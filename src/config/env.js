@@ -54,7 +54,7 @@ const env = {
     process.env.LISTING_LOOKBACK_HOURS,
     parseNumber(process.env.LISTING_RETENTION_HOURS, 24)
   ),
-  requirePostedTime: parseBoolean(process.env.REQUIRE_POSTED_TIME, true),
+  requirePostedTime: parseBoolean(process.env.REQUIRE_POSTED_TIME, false),
   listingRetentionHours: parseNumber(process.env.LISTING_RETENTION_HOURS, 24),
   notificationRetentionHours: parseNumber(process.env.NOTIFICATION_RETENTION_HOURS, 12),
   notificationDelaySeconds,

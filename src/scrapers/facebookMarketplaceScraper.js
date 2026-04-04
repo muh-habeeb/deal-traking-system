@@ -9,13 +9,21 @@ const { getProxyForWorker } = require('../services/proxyService');
 const logger = require('../utils/logger');
 
 function getStorageStatePath(workerIndex = env.workerIndex, proxyIndex = null) {
+  const defaultStorageStatePath = path.resolve(process.cwd(), env.playwrightStorageStatePath);
+
   if (env.proxy.enabled && env.proxy.bindSessionToProxy) {
     const proxySegment = Number.isFinite(proxyIndex) ? `_proxy${proxyIndex}` : '';
     const fileName = `${env.playwrightSessionPrefix}${workerIndex}${proxySegment}.json`;
-    return path.resolve(process.cwd(), env.playwrightSessionDir, fileName);
+    const scopedStorageStatePath = path.resolve(process.cwd(), env.playwrightSessionDir, fileName);
+
+    if (fs.existsSync(scopedStorageStatePath)) {
+      return scopedStorageStatePath;
+    }
+
+    return defaultStorageStatePath;
   }
 
-  return path.resolve(process.cwd(), env.playwrightStorageStatePath);
+  return defaultStorageStatePath;
 }
 
 async function hasStorageState(storageStatePath) {
@@ -306,6 +314,11 @@ function buildGlobalFallbackUrl({ baseUrl, keyword, location, minPrice, maxPrice
 async function loadAndExtractListings(page, url, maxListings) {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForTimeout(1800 + Math.floor(Math.random() * 1200));
+
+  const currentUrl = page.url();
+  if (currentUrl.includes('/marketplace/ineligible')) {
+    throw new Error('Facebook Marketplace is ineligible for this session/account. Re-authenticate with a Marketplace-enabled account.');
+  }
 
   for (let i = 0; i < 4; i += 1) {
     try {

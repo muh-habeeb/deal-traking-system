@@ -244,8 +244,9 @@ async function processFilter(filterConfig) {
 
     const postedAt = scraped.postedAt ? new Date(scraped.postedAt) : null;
     const hasValidPostedAt = Boolean(postedAt && !Number.isNaN(postedAt.getTime()));
+    const freshnessTimestamp = hasValidPostedAt ? postedAt : new Date();
 
-    if (!hasValidPostedAt && env.requirePostedTime) {
+    if (!isWithinLastMinutes(freshnessTimestamp, env.listingLookbackMinutes)) {
       staleMisses += 1;
       continue;
     }
@@ -253,11 +254,6 @@ async function processFilter(filterConfig) {
     if (hasValidPostedAt) {
       if (!newestSeenCreatedAt || postedAt.getTime() > newestSeenCreatedAt.getTime()) {
         newestSeenCreatedAt = postedAt;
-      }
-
-      if (!isWithinLastMinutes(postedAt, env.listingLookbackMinutes)) {
-        staleMisses += 1;
-        continue;
       }
 
       if (lastSeenCreatedAt && postedAt.getTime() <= lastSeenCreatedAt.getTime()) {

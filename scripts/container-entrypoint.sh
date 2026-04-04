@@ -1,6 +1,28 @@
 #!/bin/sh
 set -eu
 
+has_command() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+can_start_gui_stack() {
+  missing=""
+
+  for cmd in Xvfb fluxbox x11vnc; do
+    if ! has_command "$cmd"; then
+      missing="$missing $cmd"
+    fi
+  done
+
+  if [ -n "$missing" ]; then
+    echo "[entrypoint] WARNING: Remote login requested, but missing tools:$missing"
+    echo "[entrypoint] Rebuild with ENABLE_REMOTE_LOGIN_TOOLS=true or set ALLOW_REMOTE_FACEBOOK_LOGIN=false"
+    return 1
+  fi
+
+  return 0
+}
+
 start_gui_stack() {
   export DISPLAY="${DISPLAY:-:99}"
   export XVFB_SCREEN="${XVFB_SCREEN:-1366x768x24}"
@@ -34,7 +56,11 @@ start_gui_stack() {
 }
 
 if [ "${ALLOW_REMOTE_FACEBOOK_LOGIN:-false}" = "true" ]; then
-  start_gui_stack
+  if can_start_gui_stack; then
+    start_gui_stack
+  else
+    echo "[entrypoint] Hosted interactive login disabled due to missing GUI tools"
+  fi
 else
   echo "[entrypoint] Hosted interactive login disabled (ALLOW_REMOTE_FACEBOOK_LOGIN=false)"
 fi

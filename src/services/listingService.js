@@ -9,9 +9,19 @@ async function getRecentListings(limit = 50) {
     where: {
       ...(env.requirePostedTime
         ? {
-            postedAt: {
-              gte: postedCutoff,
-            },
+            OR: [
+              {
+                postedAt: {
+                  gte: postedCutoff,
+                },
+              },
+              {
+                postedAt: null,
+                createdAt: {
+                  gte: postedCutoff,
+                },
+              },
+            ],
           }
         : {}),
     },

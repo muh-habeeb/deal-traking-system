@@ -28,39 +28,15 @@ services:
     image: swoop:latest
     container_name: swoop-app
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       NODE_ENV: "${NODE_ENV:-production}"
-      PORT: "4000"
+      PORT: "${PORT:-4000}"
       DATABASE_URL: "${DATABASE_URL}"
-      SCRAPE_CRON: "${SCRAPE_CRON}"
-      RUN_SCAN_ON_BOOT: "false"
-      MAX_LISTINGS_PER_FILTER: "30"
-      LISTING_RETENTION_HOURS: "24"
-      NOTIFICATION_RETENTION_HOURS: "12"
-      NOTIFICATION_DELAY_MS: "2500"
-      PLAYWRIGHT_HEADLESS: "true"
-      ALLOW_REMOTE_FACEBOOK_LOGIN: "true"
-      NO_VNC_PUBLIC_URL: ${NO_VNC_PUBLIC_URL:-http://localhost:6080/vnc.html}
-      PLAYWRIGHT_BASE_URL: "https://www.facebook.com/marketplace"
-      PLAYWRIGHT_STORAGE_STATE_PATH: "/app/playwright/storageState.json"
-      PLAYWRIGHT_EXECUTABLE_PATH: ""
-      PLAYWRIGHT_BROWSER_ARGS: "--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage"
-      DISPLAY: ":99"
-      XVFB_SCREEN: "1366x768x24"
-      VNC_PORT: "5900"
-      NOVNC_PORT: "6080"
-      VNC_PASSWORD: "${VNC_PASSWORD}"
-      SMTP_HOST: "smtp.gmail.com"
-      SMTP_PORT: "587"
-      SMTP_SECURE: "true"
-      SMTP_USER: "${SMTP_USER}"
-      SMTP_PASS: "${SMTP_PASS}"
-      ALERT_FROM: "${ALERT_FROM}"
-      ALERT_TO: "${ALERT_TO}"
-      APP_AUTH_SECRET: "${APP_AUTH_SECRET:-1231hi32123}"
-      APP_LOGIN_USERNAME: "${APP_LOGIN_USERNAME:-admin}"
-      APP_LOGIN_PASSWORD: "${APP_LOGIN_PASSWORD:-admin123}"
-      NODE_OPTIONS: "--dns-result-order=ipv4first"
+      ALLOW_REMOTE_FACEBOOK_LOGIN: "${ALLOW_REMOTE_FACEBOOK_LOGIN:-false}"
+      NO_VNC_PUBLIC_URL: "${NO_VNC_PUBLIC_URL:-http://localhost:6080/vnc.html}"
+      NODE_OPTIONS: "${NODE_OPTIONS:---dns-result-order=ipv4first}"
     # ports:
     #   # - "4000:4000"
     #   - "8080:4000"
