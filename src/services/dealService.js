@@ -3,6 +3,7 @@ const env = require('../config/env');
 const { scrapeByFilter } = require('../scrapers/facebookMarketplaceScraper');
 const { getAllFilterConfigs, updateFilterLastSeen } = require('./filterService');
 const { findExistingListingByIdentity, createListing, updateListing } = require('./listingService');
+const { parsePostedAt } = require('../utils/normalizer');
 const { sendNewListingAlert } = require('./emailService');
 const { sendNewListingTelegramAlert } = require('./telegramService');
 const { getEmailSendingEnabled, getTelegramSendingEnabled } = require('./settingsService');
@@ -140,21 +141,44 @@ function isWithinLastHours(value, hours) {
   }
 
   const cutoff = Date.now() - hours * 60 * 60 * 1000;
-  return timestamp >= cutoff;
+  return timestamp > cutoff;
 }
 
-function isWithinLastMinutes(value, minutes) {
-  if (!value || !Number.isFinite(minutes) || minutes <= 0) {
-    return true;
-  }
+function getListingsFreshnessHours() {
+  const candidates = [
+    Number(env.listingLookbackHours),
+    Number(env.listingRetentionHours),
+    Number(env.listingLookbackMinutes) / 60,
+  ].filter((value) => Number.isFinite(value) && value > 0);
 
-  const timestamp = value instanceof Date ? value.getTime() : new Date(value).getTime();
-  if (Number.isNaN(timestamp)) {
+  const configuredHours = candidates.length > 0 ? Math.max(...candidates) : 24;
+  return Math.max(24, configuredHours);
+}
+
+function isClearlyDayOrOlder(postedText) {
+  const text = String(postedText || '').trim().toLowerCase();
+  if (!text) {
     return false;
   }
 
-  const cutoff = Date.now() - minutes * 60 * 1000;
-  return timestamp >= cutoff;
+  return (
+    /\byesterday\b/.test(text) ||
+    /\b(day|days|week|weeks|month|months|year|years)\b/.test(text)
+  );
+}
+
+function resolvePostedTimestamp(listing) {
+  const postedAt = listing && listing.postedAt ? new Date(listing.postedAt) : null;
+  if (postedAt && !Number.isNaN(postedAt.getTime())) {
+    return postedAt;
+  }
+
+  const parsed = parsePostedAt(listing ? listing.postedText : null);
+  if (parsed && !Number.isNaN(parsed.getTime())) {
+    return parsed;
+  }
+
+  return null;
 }
 
 function shouldRepairExisting(existing, incoming) {
@@ -242,21 +266,43 @@ async function processFilter(filterConfig) {
       continue;
     }
 
+    // Check if this listing is already in the DB
+    const existing = await findExistingListingByIdentity({
+      url: scraped.url,
+      externalId: scraped.externalId,
+    });
+
+    // Handle freshness/stale check: only check if we already have this listing
+    if (existing) {
+      // For existing listings, only consider repairing with new metadata
+      if (shouldRepairExisting(existing, scraped)) {
+        await updateListing(existing.id, scraped);
+        logger.info('Repaired existing listing from fresh scrape', {
+          listingId: existing.id,
+          url: existing.url,
+        });
+      }
+      continue;
+    }
+
+    // For NEW listings, validate they're fresh (24 hours max)
     const postedAt = scraped.postedAt ? new Date(scraped.postedAt) : null;
     const hasValidPostedAt = Boolean(postedAt && !Number.isNaN(postedAt.getTime()));
-    const freshnessTimestamp = hasValidPostedAt ? postedAt : new Date();
 
-    if (!isWithinLastMinutes(freshnessTimestamp, env.listingLookbackMinutes)) {
+    // Only reject if postAt is explicitly old (not within last 24 hours)
+    if (hasValidPostedAt && !isWithinLastHours(postedAt, 24)) {
       staleMisses += 1;
       continue;
     }
 
+    // Track newest timestamp for next run
     if (hasValidPostedAt) {
       if (!newestSeenCreatedAt || postedAt.getTime() > newestSeenCreatedAt.getTime()) {
         newestSeenCreatedAt = postedAt;
       }
 
-      if (lastSeenCreatedAt && postedAt.getTime() <= lastSeenCreatedAt.getTime()) {
+      // Skip if we've already seen this exact timestamp (duplicate from previous run)
+      if (lastSeenCreatedAt && postedAt.getTime() < lastSeenCreatedAt.getTime()) {
         staleMisses += 1;
         continue;
       }
@@ -277,85 +323,79 @@ async function processFilter(filterConfig) {
       continue;
     }
 
-    const existing = await findExistingListingByIdentity({
-      url: scraped.url,
-      externalId: scraped.externalId,
-    });
-    if (existing) {
-      if (shouldRepairExisting(existing, scraped)) {
-        await updateListing(existing.id, scraped);
-        logger.info('Repaired existing listing from fresh scrape', {
-          listingId: existing.id,
-          url: existing.url,
-        });
-      }
-      continue;
-    }
-
+    // All filters passed - this is a new fresh listing
     const created = await createListing(scraped);
     freshListings.push(created);
 
-    if (!emailEnabled && !telegramEnabled) {
-      logger.info('Notification delivery paused. Listing saved without sending notification.', {
-        listingId: created.id,
-        url: created.url,
-      });
-      continue;
-    }
-
-    try {
-      const alreadyNotified = await hasNotificationMarker({
-        url: created.url,
-        externalId: created.externalId,
-      });
-
-      if (alreadyNotified) {
-        logger.info('Skipping email: marker exists for listing identity', {
-          listingId: created.id,
+    // Send notifications if enabled
+    if (emailEnabled || telegramEnabled) {
+      try {
+        const alreadyNotified = await hasNotificationMarker({
           url: created.url,
           externalId: created.externalId,
         });
-        continue;
-      }
 
-      let delivered = false;
-
-      if (emailEnabled) {
-        try {
-          await sendNewListingAlert(created);
-          delivered = true;
-        } catch (error) {
-          logger.error('Email notification failed for listing', {
+        if (alreadyNotified) {
+          logger.info('Skipping notification: already sent for this listing', {
             listingId: created.id,
-            error: error.message,
+            url: created.url,
           });
+          continue;
         }
-      }
 
-      if (telegramEnabled) {
-        try {
-          const telegramResult = await sendNewListingTelegramAlert(created);
-          if (!telegramResult || !telegramResult.skipped) {
+        let delivered = false;
+
+        if (emailEnabled) {
+          try {
+            await sendNewListingAlert(created);
             delivered = true;
+            logger.info('Email notification sent', {
+              listingId: created.id,
+              url: created.url,
+            });
+          } catch (error) {
+            logger.error('Email notification failed', {
+              listingId: created.id,
+              error: error.message,
+            });
           }
-        } catch (error) {
-          logger.error('Telegram notification failed for listing', {
-            listingId: created.id,
-            error: error.message,
-          });
         }
-      }
 
-      if (delivered) {
-        await prisma.notificationLog.create({
-          data: { listingId: created.id },
+        if (telegramEnabled) {
+          try {
+            const result = await sendNewListingTelegramAlert(created);
+            if (result && !result.skipped) {
+              delivered = true;
+              logger.info('Telegram notification sent', {
+                listingId: created.id,
+                url: created.url,
+              });
+            }
+          } catch (error) {
+            logger.error('Telegram notification failed', {
+              listingId: created.id,
+              error: error.message,
+            });
+          }
+        }
+
+        if (delivered) {
+          await prisma.notificationLog.create({
+            data: { listingId: created.id },
+          });
+          await wait(env.notificationDelayMs);
+        }
+      } catch (error) {
+        logger.error('Notification delivery failed for listing', {
+          listingId: created.id,
+          url: created.url,
+          error: error.message,
         });
-        await wait(env.notificationDelayMs);
       }
-    } catch (error) {
-      logger.error('Notification failed for listing', {
+    } else {
+      logger.info('Notification delivery paused. Listing saved without sending alert.', {
         listingId: created.id,
-        error: error.message,
+        url: created.url,
       });
     }
   }

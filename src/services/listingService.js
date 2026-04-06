@@ -1,33 +1,87 @@
 const prisma = require('../config/prisma');
 const env = require('../config/env');
-const { normalizeListingUrl } = require('../utils/normalizer');
+const { normalizeListingUrl, parsePostedAt } = require('../utils/normalizer');
+
+function getListingsWindowHours() {
+  const candidates = [
+    Number(env.listingLookbackHours),
+    Number(env.listingRetentionHours),
+    Number(env.listingLookbackMinutes) / 60,
+  ].filter((value) => Number.isFinite(value) && value > 0);
+
+  const configuredHours = candidates.length > 0 ? Math.max(...candidates) : 24;
+  return Math.max(24, configuredHours);
+}
+
+function isClearlyDayOrOlder(postedText) {
+  const text = String(postedText || '').trim().toLowerCase();
+  if (!text) {
+    return false;
+  }
+
+  return (
+    /\byesterday\b/.test(text) ||
+    /\b(day|days|week|weeks|month|months|year|years)\b/.test(text)
+  );
+}
+
+function resolvePostedTime(listing) {
+  const postedAt = listing && listing.postedAt ? new Date(listing.postedAt) : null;
+  if (postedAt && !Number.isNaN(postedAt.getTime())) {
+    return postedAt;
+  }
+
+  const parsed = parsePostedAt(listing ? listing.postedText : null);
+  if (parsed && !Number.isNaN(parsed.getTime())) {
+    return parsed;
+  }
+
+  return null;
+}
 
 async function getRecentListings(limit = 50) {
-  const postedCutoff = new Date(Date.now() - env.listingLookbackMinutes * 60 * 1000);
+  const windowHours = getListingsWindowHours();
+  const postedCutoff = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+  const cutoffMs = postedCutoff.getTime();
 
-  return prisma.listing.findMany({
+  const candidates = await prisma.listing.findMany({
     where: {
-      ...(env.requirePostedTime
-        ? {
-            OR: [
-              {
-                postedAt: {
-                  gte: postedCutoff,
-                },
-              },
-              {
-                postedAt: null,
-                createdAt: {
-                  gte: postedCutoff,
-                },
-              },
-            ],
+      OR: [
+        {
+          postedAt: {
+            gt: postedCutoff,
           }
-        : {}),
+        },
+        {
+          createdAt: {
+            gt: postedCutoff,
+          },
+        },
+      ],
     },
     orderBy: { createdAt: 'desc' },
-    take: limit,
+    take: Math.max(limit * 6, limit),
   });
+
+  return candidates
+    .map((listing) => {
+      const resolvedPostedTime = resolvePostedTime(listing);
+      return { listing, resolvedPostedTime };
+    })
+    .filter(({ listing, resolvedPostedTime }) => {
+      if (!resolvedPostedTime) {
+        return false;
+      }
+
+      if (isClearlyDayOrOlder(listing.postedText)) {
+        return false;
+      }
+
+      return resolvedPostedTime.getTime() > cutoffMs;
+    })
+    .sort((left, right) => right.resolvedPostedTime.getTime() - left.resolvedPostedTime.getTime())
+    .slice(0, limit)
+    .map(({ listing }) => listing);
 }
 
 async function findExistingListingByUrl(url) {

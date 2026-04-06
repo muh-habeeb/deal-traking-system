@@ -20,7 +20,7 @@ function formatPrice(value) {
 }
 
 function formatPosted(listing) {
-    const source = listing.postedAt || listing.createdAt;
+    const source = listing.postedAt;
     if (source) {
         const parsed = new Date(source);
         if (!Number.isNaN(parsed.getTime())) {
@@ -32,6 +32,20 @@ function formatPosted(listing) {
     }
 
     return listing.postedText || 'N/A';
+}
+
+function getPostedSourceBadge(listing) {
+    const hasParsedPostedAt = Boolean(listing && listing.postedAt && !Number.isNaN(new Date(listing.postedAt).getTime()));
+
+    if (hasParsedPostedAt) {
+        return '<span class="badge" style="display:inline-block;margin-top:4px;">parsed time</span>';
+    }
+
+    if (listing && listing.postedText) {
+        return '<span class="badge warn" style="display:inline-block;margin-top:4px;">raw facebook text</span>';
+    }
+
+    return '<span class="badge warn" style="display:inline-block;margin-top:4px;">missing</span>';
 }
 
 function toImageProxyUrl(rawUrl) {
@@ -482,14 +496,21 @@ async function onFilterTableClick(event) {
     }
 }
 
-async function loadListings() {
+async function loadListings(options = {}) {
+    const { refresh = false } = options;
     const notice = document.getElementById('listingNotice');
     const tbody = document.getElementById('listingBody');
-    notice.textContent = 'Loading listings...';
+    notice.textContent = refresh ? 'Fetching latest listings from Facebook...' : 'Loading listings...';
 
     try {
-        const listings = await api('/api/listings?limit=40');
+        const endpoint = refresh ? '/api/listings?limit=40&refresh=true' : '/api/listings?limit=40';
+        const listings = await api(endpoint);
         tbody.innerHTML = '';
+
+        if (refresh && listings.length === 0) {
+            notice.textContent = 'No fresh listings found in the last 24 hours. Reconnect Facebook session and refresh again.';
+            return;
+        }
 
         for (const listing of listings) {
             const tr = document.createElement('tr');
@@ -497,6 +518,8 @@ async function loadListings() {
             const imageCell = imageSrc
                 ? `<img src="${escapeHtml(imageSrc)}" alt="listing" loading="lazy" style="width:72px;height:54px;object-fit:cover;border-radius:4px;" />`
                 : 'N/A';
+            const postedDisplay = escapeHtml(formatPosted(listing));
+            const postedSourceBadge = getPostedSourceBadge(listing);
             const description = listing.description
                 ? `${escapeHtml(listing.description).slice(0, 120)}${listing.description.length > 120 ? '...' : ''}`
                 : 'N/A';
@@ -508,7 +531,7 @@ async function loadListings() {
         <td>${formatPrice(listing.price)}</td>
         <td>${escapeHtml(listing.mileageText || 'N/A')}</td>
         <td>${escapeHtml(listing.location || 'N/A')}</td>
-        <td>${escapeHtml(formatPosted(listing))}</td>
+                <td>${postedDisplay}<br/>${postedSourceBadge}</td>
         <td>${description}</td>
         <td><a href="${escapeHtml(listing.url)}" target="_blank" rel="noopener noreferrer">Open</a></td>
       `;
@@ -543,7 +566,7 @@ async function loadSessionStatus() {
                 ? '<br/>Auto-save is watching for successful login and will store session automatically.'
                 : '';
             const viewerLink = data.loginInProgress && data.loginViewerUrl
-                ? `<br/>Login Screen: <a href="${escapeHtml(data.loginViewerUrl)}" target="_blank" rel="noopener noreferrer">Open</a>`
+                ? '<br/>Login Screen is available below.'
                 : '';
             holder.innerHTML = `<span class="badge warn">No Facebook session found</span><br/>${data.hint || ''}<br/>Login in progress: ${data.loginInProgress ? 'Yes' : 'No'}${autoSaveText}${viewerLink}`;
             setSessionButtonsVisibility(data);
@@ -612,7 +635,15 @@ function openSessionViewer() {
         return;
     }
 
-    window.open(sessionViewerUrl, '_blank', 'noopener,noreferrer');
+    const viewerWrap = document.getElementById('sessionViewerWrap');
+    const viewerFrame = document.getElementById('sessionViewerFrame');
+
+    viewerWrap.style.display = 'block';
+    if (viewerFrame.getAttribute('src') !== sessionViewerUrl) {
+        viewerFrame.setAttribute('src', sessionViewerUrl);
+    }
+
+    viewerWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function wireEvents() {
@@ -624,7 +655,7 @@ function wireEvents() {
     document.getElementById('filterForm').addEventListener('submit', createFilter);
     document.getElementById('filterBody').addEventListener('click', onFilterTableClick);
     document.getElementById('refreshFiltersBtn').addEventListener('click', loadFilters);
-    document.getElementById('refreshListingsBtn').addEventListener('click', loadListings);
+    document.getElementById('refreshListingsBtn').addEventListener('click', () => loadListings({ refresh: true }));
     document.getElementById('refreshSessionBtn').addEventListener('click', loadSessionStatus);
     document.getElementById('startSessionBtn').addEventListener('click', startFacebookLogin);
     document.getElementById('openSessionViewerBtn').addEventListener('click', openSessionViewer);

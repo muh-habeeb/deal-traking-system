@@ -11,7 +11,11 @@ let embeddedWorkerRestartTimer = null;
 let shuttingDown = false;
 
 function startEmbeddedWorker() {
-  embeddedWorker = createQueueWorker({ workerId: `server-${process.pid}` });
+  embeddedWorker = createQueueWorker({
+    workerId: `server-${process.pid}`,
+    // bootstrap() already syncs queue jobs when enabled.
+    skipInitialSync: env.queue.syncOnBoot,
+  });
 
   setImmediate(() => {
     embeddedWorker.runLoop().catch((error) => {
@@ -35,6 +39,32 @@ function startEmbeddedWorker() {
   });
 }
 
+async function syncQueueJobsOnBoot() {
+  const maxAttempts = 3;
+  const retryDelayMs = 2000;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await syncQueueJobs();
+    } catch (error) {
+      if (attempt >= maxAttempts) {
+        throw error;
+      }
+
+      logger.warn('Queue sync on boot failed; retrying.', {
+        attempt,
+        maxAttempts,
+        retryDelayMs,
+        error: error.message,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    }
+  }
+
+  return { synced: 0, removedOrphans: 0 };
+}
+
 async function bootstrap() {
   try {
     await prisma.$connect();
@@ -54,7 +84,7 @@ async function bootstrap() {
 
     if (env.queue.syncOnBoot) {
       try {
-        await syncQueueJobs();
+        await syncQueueJobsOnBoot();
       } catch (error) {
         logger.error('Failed to sync queue jobs on boot; continuing startup.', {
           error: error.message,

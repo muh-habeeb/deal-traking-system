@@ -5,7 +5,8 @@ const logger = require('../utils/logger');
 async function cleanupOldData() {
   const now = Date.now();
   const notificationCutoff = new Date(now - env.notificationRetentionHours * 60 * 60 * 1000);
-  const listingCutoff = new Date(now - env.listingRetentionHours * 60 * 60 * 1000);
+  const listingRetentionHours = Math.max(24, Number(env.listingRetentionHours) || 24);
+  const listingCutoff = new Date(now - listingRetentionHours * 60 * 60 * 1000);
 
   const [notificationResult, listingResult] = await Promise.all([
     prisma.notificationLog.deleteMany({

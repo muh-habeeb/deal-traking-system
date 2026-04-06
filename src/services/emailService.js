@@ -53,8 +53,8 @@ function formatPrice(price) {
   return `CA$${Number(price).toLocaleString('en-CA')}`;
 }
 
-function formatPostedDate(postedAt, postedText, createdAt) {
-  const candidate = postedAt || createdAt;
+function formatPostedDate(postedAt, postedText) {
+  const candidate = postedAt;
 
   if (candidate) {
     const parsed = new Date(candidate);
@@ -73,7 +73,7 @@ function formatListingHtml(listing) {
   const vehicleName = listing.vehicleName || listing.title || 'N/A';
   const modelYear =
     listing.modelYear !== null && listing.modelYear !== undefined ? String(listing.modelYear) : 'N/A';
-  const posted = formatPostedDate(listing.postedAt, listing.postedText, listing.createdAt);
+  const posted = formatPostedDate(listing.postedAt, listing.postedText);
 
   return `
   <div style="font-family: Arial, sans-serif; background: #f4f6f8; padding: 12px;">
@@ -133,7 +133,7 @@ function formatListingHtml(listing) {
 }
 
 function formatListingText(listing) {
-  const posted = formatPostedDate(listing.postedAt, listing.postedText, listing.createdAt);
+  const posted = formatPostedDate(listing.postedAt, listing.postedText);
   return [
     'New Deal Found',
     `Name: ${listing.vehicleName || listing.title || 'N/A'}`,

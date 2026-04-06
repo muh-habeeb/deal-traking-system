@@ -20,12 +20,21 @@ function buildWorkerId() {
 
 function createQueueWorker(options = {}) {
   const workerId = options.workerId || buildWorkerId();
+  const skipInitialSync = Boolean(options.skipInitialSync);
   let stopped = false;
   let processedJobs = 0;
 
   async function runLoop() {
-    if (env.queue.syncOnBoot) {
-      await syncQueueJobs();
+    if (env.queue.syncOnBoot && !skipInitialSync) {
+      try {
+        await syncQueueJobs();
+      } catch (error) {
+        logger.error('Initial queue sync failed; continuing worker loop.', {
+          workerId,
+          error: error.message,
+          phase: 'worker.initialSync',
+        });
+      }
     }
 
     logger.info('Queue worker started', {

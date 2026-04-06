@@ -28,7 +28,13 @@ function getLoginViewerUrl(req) {
     return '';
   }
 
-  return `${forwardedProto}://${hostname}:${env.noVncPort}/vnc.html`;
+  const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
+
+  if (env.nodeEnv === 'production' && !isLocalHost) {
+    return `${forwardedProto}://${hostname}/novnc/vnc.html?autoconnect=true&path=novnc/websockify`;
+  }
+
+  return `${forwardedProto}://${hostname}:${env.noVncPort}/vnc.html?autoconnect=true`;
 }
 
 async function getSessionStatus(req, res) {

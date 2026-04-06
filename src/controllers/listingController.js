@@ -1,4 +1,6 @@
 const { getRecentListings } = require('../services/listingService');
+const { runDealScan } = require('../services/dealService');
+const logger = require('../utils/logger');
 
 const ALLOWED_IMAGE_HOST_SUFFIXES = ['fbcdn.net'];
 
@@ -12,6 +14,16 @@ function isAllowedImageHost(hostname) {
 async function getListings(req, res, next) {
   try {
     const limit = Number(req.query.limit || 50);
+    const refresh = ['1', 'true', 'yes'].includes(String(req.query.refresh || '').toLowerCase());
+
+    if (refresh) {
+      const scanSummary = await runDealScan();
+      logger.info('Manual listings refresh scan completed', {
+        scannedFilters: scanSummary.scannedFilters,
+        newListings: scanSummary.newListings,
+      });
+    }
+
     const listings = await getRecentListings(Number.isFinite(limit) ? limit : 50);
 
     return res.json(listings);

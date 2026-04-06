@@ -17,8 +17,8 @@ function formatPrice(price) {
   return `CA$${Number(price).toLocaleString('en-CA')}`;
 }
 
-function formatPostedDate(postedAt, postedText, createdAt) {
-  const candidate = postedAt || createdAt;
+function formatPostedDate(postedAt, postedText) {
+  const candidate = postedAt;
 
   if (candidate) {
     const parsed = new Date(candidate);
@@ -40,7 +40,7 @@ function buildListingMessage(listing) {
     `${listing.vehicleName || listing.title || 'N/A'}`,
     `Price: ${formatPrice(listing.price)}`,
     `Location: ${listing.location || 'N/A'}`,
-    `Posted: ${formatPostedDate(listing.postedAt, listing.postedText, listing.createdAt)}`,
+    `Posted: ${formatPostedDate(listing.postedAt, listing.postedText)}`,
     '',
     listing.url || 'N/A',
   ].join('\n');

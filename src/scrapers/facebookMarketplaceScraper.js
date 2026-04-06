@@ -332,19 +332,24 @@ async function loadAndExtractListings(page, url, maxListings) {
   }
 
   let previousCount = 0;
-  for (let i = 0; i < 5; i += 1) {
+  for (let i = 0; i < 10; i += 1) {
     const currentCount = await page.locator('a[href*="/marketplace/item/"]').count();
     if (currentCount >= maxListings) {
       break;
     }
 
     if (currentCount > 0 && currentCount === previousCount) {
+      logger.debug('Scroll stalled, stopping page load', {
+        currentCount,
+        targetCount: maxListings,
+        scrollIteration: i,
+      });
       break;
     }
 
     previousCount = currentCount;
-    await page.mouse.wheel(0, 2600);
-    await page.waitForTimeout(1000 + Math.floor(Math.random() * 900));
+    await page.mouse.wheel(0, 3200);
+    await page.waitForTimeout(1500 + Math.floor(Math.random() * 1000));
   }
 
   return extractRawListingsFromPage(page, maxListings);
@@ -357,24 +362,38 @@ async function scrapeWithBrowser(filterConfig, launchProxy, storageStatePath) {
   try {
     context = await browser.newContext(buildContextOptions(storageStatePath));
     const page = await context.newPage();
-    const targetUrl = buildMarketplaceSearchUrl({
-      baseUrl: env.playwrightBaseUrl,
-      keyword: filterConfig.keyword,
-      location: filterConfig.location,
-      minPrice: filterConfig.minPrice,
-      maxPrice: filterConfig.maxPrice,
-    });
+
+    // Prefer Canada-wide search when no location is specified
+    const useGlobalSearch = !filterConfig.location || String(filterConfig.location).trim() === '';
+
+    const targetUrl = useGlobalSearch
+      ? buildGlobalFallbackUrl({
+          baseUrl: env.playwrightBaseUrl,
+          keyword: filterConfig.keyword,
+          location: '',
+          minPrice: filterConfig.minPrice,
+          maxPrice: filterConfig.maxPrice,
+        })
+      : buildMarketplaceSearchUrl({
+          baseUrl: env.playwrightBaseUrl,
+          keyword: filterConfig.keyword,
+          location: filterConfig.location,
+          minPrice: filterConfig.minPrice,
+          maxPrice: filterConfig.maxPrice,
+        });
 
     logger.info('Scraping marketplace URL', {
       filterId: filterConfig.id,
       targetUrl,
       proxy: launchProxy ? launchProxy.server : 'direct',
       storageStatePath: storageStatePath || 'none',
+      searchScope: useGlobalSearch ? 'canada-wide' : `location:${filterConfig.location}`,
     });
 
     let rawListings = await loadAndExtractListings(page, targetUrl, env.maxListingsPerFilter);
 
-    if (rawListings.length === 0) {
+    // Only use fallback if initial search was location-specific AND returned nothing
+    if (rawListings.length === 0 && !useGlobalSearch) {
       const globalFallbackUrl = buildGlobalFallbackUrl({
         baseUrl: env.playwrightBaseUrl,
         keyword: filterConfig.keyword,
@@ -383,12 +402,11 @@ async function scrapeWithBrowser(filterConfig, launchProxy, storageStatePath) {
         maxPrice: filterConfig.maxPrice,
       });
 
-      logger.info('No listings found in primary URLs, retrying with global search URL', {
+      logger.info('Location search returned no results, falling back to Canada-wide search', {
         filterId: filterConfig.id,
-        globalFallbackUrl,
       });
 
-      rawListings = await loadAndExtractListings(page, globalFallbackUrl, env.maxListingsPerFilter);
+      rawListings = await loadAndExtractListings(page, globalFallbackUrl, env.maxListingsPerFilter * 1.5);
     }
 
     const unique = new Map();
@@ -411,12 +429,17 @@ async function scrapeWithBrowser(filterConfig, launchProxy, storageStatePath) {
 }
 
 async function scrapeByFilter(filterConfig) {
-  const maxAttempts = env.proxy.enabled ? env.proxy.maxFailoverAttempts : 1;
+  const proxyAttempts = env.proxy.enabled ? env.proxy.maxFailoverAttempts : 1;
+  const includeDirectFallback = env.proxy.enabled;
+  const maxAttempts = proxyAttempts + (includeDirectFallback ? 1 : 0);
   let lastError = null;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const isDirectFallbackAttempt = includeDirectFallback && attempt === maxAttempts - 1;
     const rotateOffset = env.proxy.rotateOnFailure ? attempt : 0;
-    const selectedProxy = getProxyForWorker(env.workerIndex, rotateOffset);
+    const selectedProxy = isDirectFallbackAttempt
+      ? null
+      : getProxyForWorker(env.workerIndex, rotateOffset);
     const proxyIndex = selectedProxy ? selectedProxy.index : null;
     const storageStatePath = getStorageStatePath(env.workerIndex, proxyIndex);
     const stateAvailable = await hasStorageState(storageStatePath);
@@ -435,6 +458,7 @@ async function scrapeByFilter(filterConfig) {
         filterId: filterConfig.id,
         attempt: attempt + 1,
         maxAttempts,
+        isDirectFallbackAttempt,
         proxy: selectedProxy ? selectedProxy.server : 'direct',
         canRetry,
         error: error.message,

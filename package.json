@@ -4,7 +4,7 @@
   "description": "Deal tracking backend with Facebook Marketplace scraping",
   "main": "src/server.js",
   "scripts": {
-    "dev": "nodemon src/server.js --name server --prefix-color green",
+    "dev": "nodemon src/server.js",
     "worker": "node src/workers/queueWorker.js",
     "worker:dev": "nodemon src/workers/queueWorker.js",
     "pm2:start": "npx pm2 start ecosystem.config.cjs",
