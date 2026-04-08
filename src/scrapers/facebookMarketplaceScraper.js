@@ -156,11 +156,17 @@ async function extractRawListingsFromPage(page, maxListings) {
         return explicit.trim();
       }
 
-      const relative = lines.find((line) =>
-        /^\d+\s+(minute|minutes|min|mins|hour|hours|hr|hrs|day|days|week|weeks|month|months|year|years)\s+ago$/i.test(
-          line
-        )
-      );
+      // More flexible regex to catch "1 day ago", "2 days ago", "yesterday", etc.
+      // Also handles variations like "1d" or "2 days" (without "ago")
+      const relative = lines.find((line) => {
+        const normalizedLine = line.trim();
+        return (
+          /^\d+\s+(minute|minutes|min|mins|hour|hours|hr|hrs|day|days|week|weeks|month|months|year|years)(\s+ago)?$/i.test(normalizedLine) ||
+          /^yesterday\b/i.test(normalizedLine) ||
+          /^just\s+now\b/i.test(normalizedLine) ||
+          /^\d+[smhdw]\b/i.test(normalizedLine)
+        );
+      });
 
       if (relative) {
         return `Listed ${relative.trim()}`;
@@ -339,7 +345,7 @@ async function loadAndExtractListings(page, url, maxListings) {
     }
 
     if (currentCount > 0 && currentCount === previousCount) {
-      logger.debug('Scroll stalled, stopping page load', {
+      logger.info('Scroll stalled, stopping page load', {
         currentCount,
         targetCount: maxListings,
         scrollIteration: i,

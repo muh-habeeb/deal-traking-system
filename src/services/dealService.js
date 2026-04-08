@@ -8,6 +8,7 @@ const { sendNewListingAlert } = require('./emailService');
 const { sendNewListingTelegramAlert } = require('./telegramService');
 const { getEmailSendingEnabled, getTelegramSendingEnabled } = require('./settingsService');
 const { cleanupOldData } = require('./cleanupService');
+const { isListingImageVehicle } = require('./imageAnalysisService');
 const logger = require('../utils/logger');
 
 function wait(ms) {
@@ -115,13 +116,35 @@ function isLikelyVehicleDeal(listing) {
       corpus
     );
 
+  // REJECT: Toys, models, miniatures, and diecast collectibles
+  const toyIndicatorRegex =
+    /\b(1:\d+|diecast|die-cast|model car|toy|action figure|collectible|scale model|miniature|hotwheels|hot wheels|matchbox|figurine|replica|playset|resin model)\b/i;
+  const isToyOrMiniature = toyIndicatorRegex.test(corpus);
+
+  // REJECT: Very low prices for 'cars' (indicates parts or toys, not real vehicles)
+  const veryLowPrice = Number.isFinite(listing.price) && listing.price > 0 && listing.price <= 50;
+
   const partIndicatorRegex =
-    /\b(part|parts|accessory|accessories|spoiler|bumper|lip|wing|kit|cover|covers|tail\s*light|headlight|mud\s*flap|gps|tracker|tint|transmission|engine|brochure|glasses|rim|rims|wheel|wheels|tire|tires)\b/i;
+    /\b(part|parts|accessory|accessories|spoiler|bumper|lip|wing|kit|cover|covers|tail\s*light|headlight|head\s*lamp|lamp|lamps|light|lights|mud\s*flap|gps|tracker|tint|transmission|engine|brochure|glasses|rim|rims|wheel|wheels|tire|tires|sensor|sensors|detector|detectors|monitor|monitors|oem)\b/i;
   const fitmentIndicatorRegex =
     /\b(fits?|fitment|for all cars|set of|pair of|conversion kit|replacement|aftermarket)\b/i;
 
-  const isPartsStyleListing = partIndicatorRegex.test(corpus) || fitmentIndicatorRegex.test(corpus);
+  // Also check for part number patterns (e.g., "88162-0R03", "ABC-123", etc.)
+  const partNumberRegex = /\b[A-Z0-9]{3,}-[A-Z0-9]{2,}\b/i;
+  const hasPartNumber = partNumberRegex.test(corpus);
   const lowPriceAccessory = Number.isFinite(listing.price) && listing.price > 0 && listing.price <= 150;
+
+  const isPartsStyleListing = (partIndicatorRegex.test(corpus) || fitmentIndicatorRegex.test(corpus) || hasPartNumber);
+
+  // REJECT if toy/miniature indicators are found
+  if (isToyOrMiniature) {
+    return false;
+  }
+
+  // REJECT if very low price (likely parts/toy)
+  if (veryLowPrice && !hasMileage) {
+    return false;
+  }
 
   if (isPartsStyleListing && !hasMileage && (!hasLeadingYear || lowPriceAccessory)) {
     return false;
@@ -248,6 +271,14 @@ async function hasNotificationMarker(listingIdentity) {
 
 async function processFilter(filterConfig) {
   const scrapedListings = await scrapeByFilter(filterConfig);
+  
+  // Sort by posted time DESC (newest first) to ensure we process latest data first
+  const sortedListings = scrapedListings.sort((a, b) => {
+    const aTime = a.postedAt ? new Date(a.postedAt).getTime() : 0;
+    const bTime = b.postedAt ? new Date(b.postedAt).getTime() : 0;
+    return bTime - aTime;  // Descending order (newest first)
+  });
+  
   const freshListings = [];
   let keywordMisses = 0;
   let locationMisses = 0;
@@ -261,7 +292,7 @@ async function processFilter(filterConfig) {
   let newestSeenCreatedAt =
     lastSeenCreatedAt && !Number.isNaN(lastSeenCreatedAt.getTime()) ? lastSeenCreatedAt : null;
 
-  for (const scraped of scrapedListings) {
+  for (const scraped of sortedListings) {
     if (!scraped.url || !scraped.title) {
       continue;
     }
@@ -285,14 +316,53 @@ async function processFilter(filterConfig) {
       continue;
     }
 
-    // For NEW listings, validate they're fresh (24 hours max)
+    // For NEW listings, parse posted time if available
     const postedAt = scraped.postedAt ? new Date(scraped.postedAt) : null;
     const hasValidPostedAt = Boolean(postedAt && !Number.isNaN(postedAt.getTime()));
+    const scrapedAtTime = new Date();
 
-    // Only reject if postAt is explicitly old (not within last 24 hours)
-    if (hasValidPostedAt && !isWithinLastHours(postedAt, 24)) {
+    // Log raw lines to see what we're extracting from Facebook cards
+    if (scraped.postedText || !hasValidPostedAt) {
+      logger.info('Listing freshness check - timestamp analysis', {
+        filterId: filterConfig.id,
+        title: scraped.title,
+        postedText: scraped.postedText,
+        postedAt: postedAt ? postedAt.toISOString() : null,
+        hasValidPostedAt,
+        scrapedAt: scrapedAtTime.toISOString(),
+        willUse: hasValidPostedAt ? 'posted_at' : 'scraped_time',
+        rawLines: scraped.rawLines ? scraped.rawLines.slice(0, 8) : [],
+      });
+    }
+
+    // STRICT: Use posted timestamp if available, otherwise fall back to scrape time
+    const effectiveTimestamp = hasValidPostedAt ? postedAt : scrapedAtTime;
+    const isTimestampFromPosted = hasValidPostedAt;
+
+    // Enforce strict 12-hour freshness (from either posted or scraped time)
+    if (!isWithinLastHours(effectiveTimestamp, 12)) {
       staleMisses += 1;
+      logger.info('Listing outside 12-hour window, rejecting', {
+        filterId: filterConfig.id,
+        url: scraped.url,
+        title: scraped.title,
+        postedAt: hasValidPostedAt ? postedAt.toISOString() : null,
+        postedText: scraped.postedText,
+        scrapedAt: scrapedAtTime.toISOString(),
+        usedTimestamp: isTimestampFromPosted ? 'posted' : 'scraped',
+        ageHours: ((Date.now() - effectiveTimestamp.getTime()) / (60 * 60 * 1000)).toFixed(1),
+        effectiveTimestamp: effectiveTimestamp.toISOString(),
+      });
       continue;
+    }
+
+    // Log timestamp source for transparency
+    if (!isTimestampFromPosted) {
+      logger.info('Using scraped timestamp (no explicit posted time)', {
+        filterId: filterConfig.id,
+        url: scraped.url,
+        scrapedAt: scrapedAtTime.toISOString(),
+      });
     }
 
     // Track newest timestamp for next run
@@ -323,6 +393,58 @@ async function processFilter(filterConfig) {
       continue;
     }
 
+    // Image analysis: verify listing image contains actual vehicle
+    if (scraped.image) {
+      try {
+        logger.info('Image analysis starting', {
+          filterId: filterConfig.id,
+          url: scraped.url,
+          imageUrl: scraped.image.substring(0, 100),
+        });
+
+        const imageIsVehicle = await isListingImageVehicle(scraped);
+
+        logger.info('Image analysis result', {
+          filterId: filterConfig.id,
+          url: scraped.url,
+          isVehicle: imageIsVehicle,
+        });
+
+        // imageIsVehicle can be: true, false, or null (unable to analyze)
+        if (imageIsVehicle === false) {
+          // Image analysis confirms it's NOT a vehicle (likely parts/toy)
+          nonVehicleMisses += 1;
+          logger.info('Image analysis rejected listing (not a vehicle)', {
+            filterId: filterConfig.id,
+            url: scraped.url,
+            title: scraped.title,
+          });
+          continue;
+        }
+
+        if (imageIsVehicle === true) {
+          logger.info('Image analysis confirmed vehicle', {
+            filterId: filterConfig.id,
+            url: scraped.url,
+          });
+        }
+        // If null, analysis was inconclusive; proceed with listing
+      } catch (imageError) {
+        logger.warn('Image analysis error, proceeding anyway', {
+          filterId: filterConfig.id,
+          url: scraped.url,
+          error: imageError.message,
+        });
+        // Continue processing on error (other filters protect)
+      }
+    } else {
+      logger.info('No image for analysis', {
+        filterId: filterConfig.id,
+        url: scraped.url,
+        hasImage: Boolean(scraped.image),
+      });
+    }
+
     // All filters passed - this is a new fresh listing
     const created = await createListing(scraped);
     freshListings.push(created);
@@ -349,9 +471,14 @@ async function processFilter(filterConfig) {
           try {
             await sendNewListingAlert(created);
             delivered = true;
+            const ageMinutes = created.postedAt
+              ? ((Date.now() - new Date(created.postedAt).getTime()) / 60000).toFixed(1)
+              : 'scraped just now';
             logger.info('Email notification sent', {
               listingId: created.id,
               url: created.url,
+              postedAt: created.postedAt,
+              ageMinutes,
             });
           } catch (error) {
             logger.error('Email notification failed', {
@@ -366,9 +493,15 @@ async function processFilter(filterConfig) {
             const result = await sendNewListingTelegramAlert(created);
             if (result && !result.skipped) {
               delivered = true;
+              const ageMinutes = created.postedAt
+                ? ((Date.now() - new Date(created.postedAt).getTime()) / 60000).toFixed(1)
+                : 'scraped just now';
               logger.info('Telegram notification sent', {
                 listingId: created.id,
                 url: created.url,
+                postedAt: created.postedAt,
+                postedText: created.postedText,
+                ageMinutes,
               });
             }
           } catch (error) {

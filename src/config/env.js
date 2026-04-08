@@ -134,6 +134,10 @@ const env = {
     lowPeakDelayMs: parseSecondsToMs(process.env.LOW_PEAK_DELAY_SECONDS, 120),
     lowOffPeakDelayMs: parseSecondsToMs(process.env.LOW_OFFPEAK_DELAY_SECONDS, 300),
   },
+  imageAnalysis: {
+    enabled: parseBoolean(process.env.IMAGE_ANALYSIS_ENABLED, true),
+    timeoutMs: parseSecondsToMs(process.env.IMAGE_ANALYSIS_TIMEOUT_SECONDS, 15),
+  },
 };
 
 module.exports = env;

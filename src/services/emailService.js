@@ -66,7 +66,11 @@ function formatPostedDate(postedAt, postedText) {
     }
   }
 
-  return postedText || 'N/A';
+  if (postedText && postedText.toLowerCase() !== 'none') {
+    return postedText;
+  }
+
+  return 'Just scraped';
 }
 
 function formatListingHtml(listing) {

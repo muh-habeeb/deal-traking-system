@@ -61,7 +61,7 @@ function buildMarketplaceSearchUrl({ baseUrl, keyword, location, minPrice, maxPr
   url.searchParams.set('sortBy', 'creation_time_descend');
   url.searchParams.set('category_id', '546583916084032');
   url.searchParams.set('exact', 'false');
-  url.searchParams.set('radius_in_km', '500');
+  url.searchParams.set('radius_in_km', '1000');
 
   if (Number.isFinite(minPrice)) {
     url.searchParams.set('minPrice', String(minPrice));
