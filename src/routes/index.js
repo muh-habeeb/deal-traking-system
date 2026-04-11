@@ -6,6 +6,7 @@ const authRoutes = require('./authRoutes');
 const settingsRoutes = require('./settingsRoutes');
 const facebookSessionRoutes = require('./facebookSessionRoutes');
 const { requireAuth } = require('../middlewares/authMiddleware');
+const { getListingImage } = require('../controllers/listingController');
 
 const router = express.Router();
 
@@ -14,6 +15,9 @@ router.get('/health', (_req, res) => {
 });
 
 router.use('/auth', authRoutes);
+
+// Public image endpoint (safe: only proxies fbcdn.net)
+router.get('/listings/image', getListingImage);
 
 router.use(requireAuth);
 
