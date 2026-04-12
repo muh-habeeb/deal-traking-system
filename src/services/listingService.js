@@ -43,6 +43,7 @@ async function getRecentListings(limit = 50) {
   const windowHours = getListingsWindowHours();
   const postedCutoff = new Date(Date.now() - windowHours * 60 * 60 * 1000);
   const cutoffMs = postedCutoff.getTime();
+  const requirePostedTime = ['true', '1', 'yes'].includes(String(env.requirePostedTime || '').toLowerCase());
 
   const candidates = await prisma.listing.findMany({
     where: {
@@ -69,17 +70,27 @@ async function getRecentListings(limit = 50) {
       return { listing, resolvedPostedTime };
     })
     .filter(({ listing, resolvedPostedTime }) => {
-      if (!resolvedPostedTime) {
-        return false;
+      // If posted time is required, filter strictly
+      if (requirePostedTime) {
+        if (!resolvedPostedTime) {
+          return false;
+        }
+
+        if (isClearlyDayOrOlder(listing.postedText)) {
+          return false;
+        }
+
+        return resolvedPostedTime.getTime() > cutoffMs;
       }
 
-      if (isClearlyDayOrOlder(listing.postedText)) {
-        return false;
-      }
-
-      return resolvedPostedTime.getTime() > cutoffMs;
+      // If posted time is NOT required, just check creation time
+      return listing.createdAt && new Date(listing.createdAt).getTime() > cutoffMs;
     })
-    .sort((left, right) => right.resolvedPostedTime.getTime() - left.resolvedPostedTime.getTime())
+    .sort((left, right) => {
+      const leftTime = left.resolvedPostedTime ? left.resolvedPostedTime.getTime() : new Date(left.listing.createdAt).getTime();
+      const rightTime = right.resolvedPostedTime ? right.resolvedPostedTime.getTime() : new Date(right.listing.createdAt).getTime();
+      return rightTime - leftTime;
+    })
     .slice(0, limit)
     .map(({ listing }) => listing);
 }

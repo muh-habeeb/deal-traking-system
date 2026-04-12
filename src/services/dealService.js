@@ -116,25 +116,36 @@ function isLikelyVehicleDeal(listing) {
       corpus
     );
 
-  // REJECT: Toys, models, miniatures, and diecast collectibles
-  const toyIndicatorRegex =
-    /\b(1:\d+|diecast|die-cast|model car|toy|action figure|collectible|scale model|miniature|hotwheels|hot wheels|matchbox|figurine|replica|playset|resin model)\b/i;
-  const isToyOrMiniature = toyIndicatorRegex.test(corpus);
+  // Check if corpus contains any excluded toy keywords
+  const isToyOrMiniature = env.listings.excludedToyKeywords.some(keyword => {
+    const escapedKeyword = escapeRegex(keyword);
+    const regex = new RegExp(`\\b${escapedKeyword}\\b`, 'i');
+    return regex.test(corpus);
+  });
 
   // REJECT: Very low prices for 'cars' (indicates parts or toys, not real vehicles)
   const veryLowPrice = Number.isFinite(listing.price) && listing.price > 0 && listing.price <= 50;
 
-  const partIndicatorRegex =
-    /\b(part|parts|accessory|accessories|spoiler|bumper|lip|wing|kit|cover|covers|tail\s*light|headlight|head\s*lamp|lamp|lamps|light|lights|mud\s*flap|gps|tracker|tint|transmission|engine|brochure|glasses|rim|rims|wheel|wheels|tire|tires|sensor|sensors|detector|detectors|monitor|monitors|oem)\b/i;
-  const fitmentIndicatorRegex =
-    /\b(fits?|fitment|for all cars|set of|pair of|conversion kit|replacement|aftermarket)\b/i;
+  // Check if corpus contains any excluded part keywords
+  const hasExcludedPartKeyword = env.listings.excludedPartKeywords.some(keyword => {
+    const escapedKeyword = escapeRegex(keyword);
+    const regex = new RegExp(`\\b${escapedKeyword}\\b`, 'i');
+    return regex.test(corpus);
+  });
+
+  // Check if corpus contains any excluded fitment keywords
+  const hasExcludedFitmentKeyword = env.listings.excludedFitmentKeywords.some(keyword => {
+    const escapedKeyword = escapeRegex(keyword);
+    const regex = new RegExp(`\\b${escapedKeyword}\\b`, 'i');
+    return regex.test(corpus);
+  });
 
   // Also check for part number patterns (e.g., "88162-0R03", "ABC-123", etc.)
   const partNumberRegex = /\b[A-Z0-9]{3,}-[A-Z0-9]{2,}\b/i;
   const hasPartNumber = partNumberRegex.test(corpus);
   const lowPriceAccessory = Number.isFinite(listing.price) && listing.price > 0 && listing.price <= 150;
 
-  const isPartsStyleListing = (partIndicatorRegex.test(corpus) || fitmentIndicatorRegex.test(corpus) || hasPartNumber);
+  const isPartsStyleListing = (hasExcludedPartKeyword || hasExcludedFitmentKeyword || hasPartNumber);
 
   // REJECT if toy/miniature indicators are found
   if (isToyOrMiniature) {

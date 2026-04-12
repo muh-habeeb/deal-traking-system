@@ -23,13 +23,21 @@ RUN npx --yes playwright@${PLAYWRIGHT_VERSION} install --with-deps chromium
 
 FROM base AS deps
 
+# Install build dependencies needed for sharp compilation on Linux
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends \
+		build-essential \
+		python3 \
+	&& rm -rf /var/lib/apt/lists/*
+
 # Copy Prisma config/schema BEFORE npm ci, because postinstall runs prisma generate.
 COPY package*.json ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./
 
 # Keep dev dependencies in image because entrypoint runs `prisma migrate deploy`.
-RUN npm ci --include=dev --omit=optional --no-audit --no-fund
+# Install optional dependencies so sharp gets built for Linux
+RUN npm ci --include=dev --include=optional --no-audit --no-fund
 
 FROM base AS runtime
 

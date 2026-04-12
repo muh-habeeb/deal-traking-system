@@ -28,6 +28,17 @@ function parseHour(value, fallback) {
   return parsed;
 }
 
+function parseKeywordList(value, fallbackList = []) {
+  if (!value || typeof value !== 'string') {
+    return fallbackList;
+  }
+
+  return value
+    .split(',')
+    .map(keyword => keyword.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 const notificationDelaySeconds =
   process.env.NOTIFICATION_DELAY_SECONDS !== undefined
     ? parseNumber(process.env.NOTIFICATION_DELAY_SECONDS, 2.5)
@@ -137,6 +148,20 @@ const env = {
   imageAnalysis: {
     enabled: parseBoolean(process.env.IMAGE_ANALYSIS_ENABLED, true),
     timeoutMs: parseSecondsToMs(process.env.IMAGE_ANALYSIS_TIMEOUT_SECONDS, 15),
+  },
+  listings: {
+    excludedPartKeywords: parseKeywordList(
+      process.env.EXCLUDED_PART_KEYWORDS,
+      ['part', 'parts', 'accessory', 'accessories', 'spoiler', 'bumper', 'lip', 'wing', 'kit', 'cover', 'covers', 'tail light', 'headlight', 'head lamp', 'lamp', 'lamps', 'light', 'lights', 'mud flap', 'gps', 'tracker', 'tint', 'transmission', 'engine', 'brochure', 'glasses', 'rim', 'rims', 'wheel', 'wheels', 'tire', 'tires', 'sensor', 'sensors', 'detector', 'detectors', 'monitor', 'monitors', 'oem']
+    ),
+    excludedToyKeywords: parseKeywordList(
+      process.env.EXCLUDED_TOY_KEYWORDS,
+      ['diecast', 'die-cast', 'model car', 'toy', 'action figure', 'collectible', 'scale model', 'miniature', 'hotwheels', 'hot wheels', 'matchbox', 'figurine', 'replica', 'playset', 'resin model']
+    ),
+    excludedFitmentKeywords: parseKeywordList(
+      process.env.EXCLUDED_FITMENT_KEYWORDS,
+      ['fits', 'fit', 'fitment', 'for all cars', 'set of', 'pair of', 'conversion kit', 'replacement', 'aftermarket']
+    ),
   },
 };
 
