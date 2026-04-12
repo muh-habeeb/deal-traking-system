@@ -21,8 +21,14 @@ model FilterConfig {
   keyword    String
   minPrice   Int?
   maxPrice   Int?
-  location   String
-  priority   String   @default("medium")
+  location     String
+  cities       String?
+  kmRadius     Int?
+  yearFrom     Int?
+  yearTo       Int?
+  kmDrivenMin  Int?
+  kmDrivenMax  Int?
+  priority     String   @default("medium")
   lastSeenCreatedAt DateTime?
   createdAt  DateTime @default(now())
   userId     String?

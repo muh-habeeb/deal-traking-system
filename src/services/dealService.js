@@ -106,6 +106,71 @@ function isLikelyPriceTitle(title) {
   return /(ca\$|c\$|cad\b|\$|\bfree\b|\bgratuit\b)/i.test(String(title || '').trim());
 }
 
+function matchesYearRange(listing, yearFrom, yearTo) {
+  if (!Number.isFinite(yearFrom) && !Number.isFinite(yearTo)) {
+    return true;
+  }
+
+  const year = listing.modelYear;
+  if (!Number.isFinite(year)) {
+    return true;
+  }
+
+  if (Number.isFinite(yearFrom) && year < yearFrom) {
+    return false;
+  }
+
+  if (Number.isFinite(yearTo) && year > yearTo) {
+    return false;
+  }
+
+  return true;
+}
+
+function matchesKmDriven(listing, minKmDriven, maxKmDriven) {
+  const km = listing.mileageMiles;
+  
+  // If km is not available, pass the filter
+  if (!Number.isFinite(km)) {
+    return true;
+  }
+  
+  // If neither min nor max is set, pass the filter
+  if (!Number.isFinite(minKmDriven) && !Number.isFinite(maxKmDriven)) {
+    return true;
+  }
+  
+  // Check min boundary
+  if (Number.isFinite(minKmDriven) && km < minKmDriven) {
+    return false;
+  }
+  
+  // Check max boundary
+  if (Number.isFinite(maxKmDriven) && km > maxKmDriven) {
+    return false;
+  }
+  
+  return true;
+}
+
+function matchesCities(listing, citiesString) {
+  if (!citiesString || String(citiesString).trim() === '') {
+    return true;
+  }
+
+  const cities = String(citiesString)
+    .split(',')
+    .map(city => city.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (cities.length === 0) {
+    return true;
+  }
+
+  const listingLocation = String(listing.location || '').toLowerCase();
+  return cities.some(city => listingLocation.includes(city));
+}
+
 function isLikelyVehicleDeal(listing) {
   const title = String(listing.title || '').trim();
   const corpus = `${listing.title || ''} ${listing.vehicleName || ''} ${listing.description || ''} ${listing.searchableText || ''}`.toLowerCase();
@@ -396,6 +461,21 @@ async function processFilter(filterConfig) {
 
     if (!matchesFilterLocation(scraped, filterConfig.location)) {
       locationMisses += 1;
+      continue;
+    }
+
+    if (filterConfig.cities && !matchesCities(scraped, filterConfig.cities)) {
+      locationMisses += 1;
+      continue;
+    }
+
+    if (!matchesYearRange(scraped, filterConfig.yearFrom, filterConfig.yearTo)) {
+      keywordMisses += 1;
+      continue;
+    }
+
+    if (!matchesKmDriven(scraped, filterConfig.kmDrivenMin, filterConfig.kmDrivenMax)) {
+      keywordMisses += 1;
       continue;
     }
 

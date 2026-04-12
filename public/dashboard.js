@@ -376,8 +376,14 @@ async function createFilter(event) {
     const payload = {
         keyword: document.getElementById('keyword').value.trim(),
         location: document.getElementById('location').value.trim(),
+        cities: document.getElementById('cities').value.trim() || undefined,
+        kmRadius: document.getElementById('kmRadius').value ? parseInt(document.getElementById('kmRadius').value) : undefined,
         minPrice: document.getElementById('minPrice').value || null,
         maxPrice: document.getElementById('maxPrice').value || null,
+        yearFrom: document.getElementById('yearFrom').value ? parseInt(document.getElementById('yearFrom').value) : undefined,
+        yearTo: document.getElementById('yearTo').value ? parseInt(document.getElementById('yearTo').value) : undefined,
+        kmDrivenMin: document.getElementById('kmDrivenMin').value ? parseInt(document.getElementById('kmDrivenMin').value) : undefined,
+        kmDrivenMax: document.getElementById('kmDrivenMax').value ? parseInt(document.getElementById('kmDrivenMax').value) : undefined,
         priority: document.getElementById('priority').value || 'medium',
     };
 
@@ -399,8 +405,14 @@ function renderFilterRow(filter) {
     tr.innerHTML = `
     <td><input data-role="keyword" value="${filter.keyword || ''}" /></td>
     <td><input data-role="location" value="${filter.location || ''}" /></td>
+    <td><input data-role="cities" value="${filter.cities || ''}" placeholder="City1, City2" /></td>
+    <td><input data-role="kmRadius" type="number" min="0" value="${filter.kmRadius ?? ''}" placeholder="km" /></td>
     <td><input data-role="minPrice" type="number" min="0" value="${filter.minPrice ?? ''}" /></td>
     <td><input data-role="maxPrice" type="number" min="0" value="${filter.maxPrice ?? ''}" /></td>
+    <td><input data-role="yearFrom" type="number" min="1900" max="2100" value="${filter.yearFrom ?? ''}" placeholder="From" /></td>
+    <td><input data-role="yearTo" type="number" min="1900" max="2100" value="${filter.yearTo ?? ''}" placeholder="To" /></td>
+    <td><input data-role="kmDrivenMin" type="number" min="0" value="${filter.kmDrivenMin ?? ''}" placeholder="Min km" /></td>
+    <td><input data-role="kmDrivenMax" type="number" min="0" value="${filter.kmDrivenMax ?? ''}" placeholder="Max km" /></td>
         <td>
             <select data-role="priority">
                 <option value="high" ${filter.priority === 'high' ? 'selected' : ''}>High</option>
@@ -477,8 +489,14 @@ async function onFilterTableClick(event) {
         const payload = {
             keyword: row.querySelector('input[data-role="keyword"]').value.trim(),
             location: row.querySelector('input[data-role="location"]').value.trim(),
+            cities: row.querySelector('input[data-role="cities"]').value.trim() || undefined,
+            kmRadius: row.querySelector('input[data-role="kmRadius"]').value ? parseInt(row.querySelector('input[data-role="kmRadius"]').value) : undefined,
             minPrice: row.querySelector('input[data-role="minPrice"]').value || null,
             maxPrice: row.querySelector('input[data-role="maxPrice"]').value || null,
+            yearFrom: row.querySelector('input[data-role="yearFrom"]').value ? parseInt(row.querySelector('input[data-role="yearFrom"]').value) : undefined,
+            yearTo: row.querySelector('input[data-role="yearTo"]').value ? parseInt(row.querySelector('input[data-role="yearTo"]').value) : undefined,
+            kmDrivenMin: row.querySelector('input[data-role="kmDrivenMin"]').value ? parseInt(row.querySelector('input[data-role="kmDrivenMin"]').value) : undefined,
+            kmDrivenMax: row.querySelector('input[data-role="kmDrivenMax"]').value ? parseInt(row.querySelector('input[data-role="kmDrivenMax"]').value) : undefined,
             priority: row.querySelector('select[data-role="priority"]').value || 'medium',
         };
 

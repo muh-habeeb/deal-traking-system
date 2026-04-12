@@ -68,12 +68,36 @@
           <input id="location" required placeholder="toronto" />
         </div>
         <div>
+          <label for="cities">Cities (comma-separated)</label>
+          <input id="cities" placeholder="Mississauga, Brampton, Cambridge" />
+        </div>
+        <div>
+          <label for="kmRadius">Search Radius (km)</label>
+          <input id="kmRadius" type="number" min="0" placeholder="100" />
+        </div>
+        <div>
           <label for="minPrice">Min Price</label>
           <input id="minPrice" type="number" min="0" />
         </div>
         <div>
           <label for="maxPrice">Max Price</label>
           <input id="maxPrice" type="number" min="0" />
+        </div>
+        <div>
+          <label for="yearFrom">Year From</label>
+          <input id="yearFrom" type="number" min="1900" max="2100" placeholder="2010" />
+        </div>
+        <div>
+          <label for="yearTo">Year To</label>
+          <input id="yearTo" type="number" min="1900" max="2100" placeholder="2024" />
+        </div>
+        <div>
+          <label for="kmDrivenMin">Min KM Driven</label>
+          <input id="kmDrivenMin" type="number" min="0" placeholder="50000" />
+        </div>
+        <div>
+          <label for="kmDrivenMax">Max KM Driven</label>
+          <input id="kmDrivenMax" type="number" min="0" placeholder="150000" />
         </div>
         <div>
           <label for="priority">Priority</label>
@@ -101,8 +125,14 @@
             <tr>
               <th>Keyword</th>
               <th>Location</th>
-              <th>Min</th>
-              <th>Max</th>
+              <th>Cities</th>
+              <th>Radius (km)</th>
+              <th>Min Price</th>
+              <th>Max Price</th>
+              <th>Year From</th>
+              <th>Year To</th>
+              <th>Min KM</th>
+              <th>Max KM</th>
               <th>Priority</th>
               <th>Actions</th>
             </tr>

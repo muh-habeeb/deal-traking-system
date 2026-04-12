@@ -18,7 +18,7 @@ function parseNumber(value) {
 
 async function createFilter(req, res, next) {
   try {
-    const { keyword, location, minPrice, maxPrice, userId, priority } = req.body;
+    const { keyword, location, minPrice, maxPrice, userId, priority, cities, kmRadius, yearFrom, yearTo, kmDrivenMin, kmDrivenMax } = req.body;
 
     if (!keyword || !location) {
       return res.status(400).json({
@@ -28,6 +28,11 @@ async function createFilter(req, res, next) {
 
     const parsedMin = parseNumber(minPrice);
     const parsedMax = parseNumber(maxPrice);
+    const parsedKmRadius = parseNumber(kmRadius);
+    const parsedYearFrom = parseNumber(yearFrom);
+    const parsedYearTo = parseNumber(yearTo);
+    const parsedKmDrivenMin = parseNumber(kmDrivenMin);
+    const parsedKmDrivenMax = parseNumber(kmDrivenMax);
 
     if (Number.isNaN(parsedMin) || Number.isNaN(parsedMax)) {
       return res.status(400).json({
@@ -41,6 +46,18 @@ async function createFilter(req, res, next) {
       });
     }
 
+    if (parsedYearFrom !== null && parsedYearTo !== null && parsedYearFrom > parsedYearTo) {
+      return res.status(400).json({
+        message: 'yearFrom cannot be greater than yearTo',
+      });
+    }
+
+    if (parsedKmDrivenMin !== null && parsedKmDrivenMax !== null && parsedKmDrivenMin > parsedKmDrivenMax) {
+      return res.status(400).json({
+        message: 'kmDrivenMin cannot be greater than kmDrivenMax',
+      });
+    }
+
     const filter = await createFilterConfig({
       keyword,
       location,
@@ -48,6 +65,12 @@ async function createFilter(req, res, next) {
       maxPrice: parsedMax,
       userId,
       priority: normalizePriority(priority),
+      cities,
+      kmRadius: parsedKmRadius,
+      yearFrom: parsedYearFrom,
+      yearTo: parsedYearTo,
+      kmDrivenMin: parsedKmDrivenMin,
+      kmDrivenMax: parsedKmDrivenMax,
     });
 
     return res.status(201).json(filter);
@@ -83,7 +106,7 @@ async function getFilterById(req, res, next) {
 async function updateFilter(req, res, next) {
   try {
     const { id } = req.params;
-    const { keyword, location, minPrice, maxPrice, priority } = req.body;
+    const { keyword, location, minPrice, maxPrice, priority, cities, kmRadius, yearFrom, yearTo, kmDrivenMin, kmDrivenMax } = req.body;
 
     if (!keyword || !location) {
       return res.status(400).json({
@@ -93,6 +116,11 @@ async function updateFilter(req, res, next) {
 
     const parsedMin = parseNumber(minPrice);
     const parsedMax = parseNumber(maxPrice);
+    const parsedKmRadius = parseNumber(kmRadius);
+    const parsedYearFrom = parseNumber(yearFrom);
+    const parsedYearTo = parseNumber(yearTo);
+    const parsedKmDrivenMin = parseNumber(kmDrivenMin);
+    const parsedKmDrivenMax = parseNumber(kmDrivenMax);
 
     if (Number.isNaN(parsedMin) || Number.isNaN(parsedMax)) {
       return res.status(400).json({
@@ -106,12 +134,30 @@ async function updateFilter(req, res, next) {
       });
     }
 
+    if (parsedYearFrom !== null && parsedYearTo !== null && parsedYearFrom > parsedYearTo) {
+      return res.status(400).json({
+        message: 'yearFrom cannot be greater than yearTo',
+      });
+    }
+
+    if (parsedKmDrivenMin !== null && parsedKmDrivenMax !== null && parsedKmDrivenMin > parsedKmDrivenMax) {
+      return res.status(400).json({
+        message: 'kmDrivenMin cannot be greater than kmDrivenMax',
+      });
+    }
+
     const updated = await updateFilterConfig(id, {
       keyword,
       location,
       minPrice: parsedMin,
       maxPrice: parsedMax,
       priority: normalizePriority(priority),
+      cities,
+      kmRadius: parsedKmRadius,
+      yearFrom: parsedYearFrom,
+      yearTo: parsedYearTo,
+      kmDrivenMin: parsedKmDrivenMin,
+      kmDrivenMax: parsedKmDrivenMax,
     });
 
     return res.json(updated);
