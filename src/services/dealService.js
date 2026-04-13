@@ -459,14 +459,18 @@ async function processFilter(filterConfig) {
       continue;
     }
 
-    if (!matchesFilterLocation(scraped, filterConfig.location)) {
-      locationMisses += 1;
-      continue;
-    }
-
-    if (filterConfig.cities && !matchesCities(scraped, filterConfig.cities)) {
-      locationMisses += 1;
-      continue;
+    // If cities are specified, use cities matching instead of strict location matching
+    if (filterConfig.cities) {
+      if (!matchesCities(scraped, filterConfig.cities)) {
+        locationMisses += 1;
+        continue;
+      }
+    } else {
+      // Fall back to strict location matching if cities not specified
+      if (!matchesFilterLocation(scraped, filterConfig.location)) {
+        locationMisses += 1;
+        continue;
+      }
     }
 
     if (!matchesYearRange(scraped, filterConfig.yearFrom, filterConfig.yearTo)) {
