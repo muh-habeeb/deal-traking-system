@@ -2,15 +2,24 @@ const prisma = require('../config/prisma');
 const env = require('../config/env');
 const { normalizeListingUrl, parsePostedAt } = require('../utils/normalizer');
 
+const HARD_MAX_LISTING_WINDOW_HOURS = 12;
+
 function getListingsWindowHours() {
-  const candidates = [
+  const lookbackCandidates = [
     Number(env.listingLookbackHours),
-    Number(env.listingRetentionHours),
     Number(env.listingLookbackMinutes) / 60,
   ].filter((value) => Number.isFinite(value) && value > 0);
 
-  const configuredHours = candidates.length > 0 ? Math.max(...candidates) : 24;
-  return Math.max(24, configuredHours);
+  if (lookbackCandidates.length > 0) {
+    return Math.min(HARD_MAX_LISTING_WINDOW_HOURS, ...lookbackCandidates);
+  }
+
+  const retention = Number(env.listingRetentionHours);
+  if (Number.isFinite(retention) && retention > 0) {
+    return Math.min(HARD_MAX_LISTING_WINDOW_HOURS, retention);
+  }
+
+  return HARD_MAX_LISTING_WINDOW_HOURS;
 }
 
 function isClearlyDayOrOlder(postedText) {
@@ -23,6 +32,35 @@ function isClearlyDayOrOlder(postedText) {
     /\byesterday\b/.test(text) ||
     /\b(day|days|week|weeks|month|months|year|years)\b/.test(text)
   );
+}
+
+function getPostedTextAgeHours(postedText) {
+  const text = String(postedText || '').trim().toLowerCase();
+  if (!text) {
+    return null;
+  }
+
+  if (/\byesterday\b/.test(text)) {
+    return 24;
+  }
+
+  const hourMatch = text.match(/\b(\d+)\s*(hour|hours|hr|hrs|h)\b/i);
+  if (hourMatch) {
+    const value = Number(hourMatch[1]);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  const minuteMatch = text.match(/\b(\d+)\s*(minute|minutes|min|mins|m)\b/i);
+  if (minuteMatch) {
+    const value = Number(minuteMatch[1]);
+    return Number.isFinite(value) ? value / 60 : null;
+  }
+
+  if (/\b(day|days|week|weeks|month|months|year|years)\b/.test(text)) {
+    return 24;
+  }
+
+  return null;
 }
 
 function resolvePostedTime(listing) {
@@ -70,12 +108,13 @@ async function getRecentListings(limit = 50) {
       return { listing, resolvedPostedTime };
     })
     .filter(({ listing, resolvedPostedTime }) => {
-      // If posted time is required, filter strictly
-      if (requirePostedTime) {
-        if (!resolvedPostedTime) {
-          return false;
-        }
+      const postedTextAgeHours = getPostedTextAgeHours(listing.postedText);
+      if (Number.isFinite(postedTextAgeHours) && postedTextAgeHours > windowHours) {
+        return false;
+      }
 
+      // Always trust posted time when available so old posts don't slip through via createdAt.
+      if (resolvedPostedTime) {
         if (isClearlyDayOrOlder(listing.postedText)) {
           return false;
         }
@@ -83,7 +122,12 @@ async function getRecentListings(limit = 50) {
         return resolvedPostedTime.getTime() > cutoffMs;
       }
 
-      // If posted time is NOT required, just check creation time
+      // If posted time is required, reject listings that do not have one.
+      if (requirePostedTime) {
+        return false;
+      }
+
+      // If posted time is not available, fall back to creation time recency.
       return listing.createdAt && new Date(listing.createdAt).getTime() > cutoffMs;
     })
     .sort((left, right) => {

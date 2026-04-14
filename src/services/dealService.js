@@ -9,7 +9,10 @@ const { sendNewListingTelegramAlert } = require('./telegramService');
 const { getEmailSendingEnabled, getTelegramSendingEnabled } = require('./settingsService');
 const { cleanupOldData } = require('./cleanupService');
 const { isListingImageVehicle } = require('./imageAnalysisService');
+const { getFacebookSessionStatus } = require('./facebookSessionService');
 const logger = require('../utils/logger');
+
+const HARD_MAX_FRESHNESS_HOURS = 12;
 
 function wait(ms) {
   if (!Number.isFinite(ms) || ms <= 0) {
@@ -244,14 +247,21 @@ function isWithinLastHours(value, hours) {
 }
 
 function getListingsFreshnessHours() {
-  const candidates = [
+  const lookbackCandidates = [
     Number(env.listingLookbackHours),
-    Number(env.listingRetentionHours),
     Number(env.listingLookbackMinutes) / 60,
   ].filter((value) => Number.isFinite(value) && value > 0);
 
-  const configuredHours = candidates.length > 0 ? Math.max(...candidates) : 24;
-  return Math.max(24, configuredHours);
+  if (lookbackCandidates.length > 0) {
+    return Math.min(HARD_MAX_FRESHNESS_HOURS, ...lookbackCandidates);
+  }
+
+  const retention = Number(env.listingRetentionHours);
+  if (Number.isFinite(retention) && retention > 0) {
+    return Math.min(HARD_MAX_FRESHNESS_HOURS, retention);
+  }
+
+  return HARD_MAX_FRESHNESS_HOURS;
 }
 
 function isClearlyDayOrOlder(postedText) {
@@ -266,6 +276,35 @@ function isClearlyDayOrOlder(postedText) {
   );
 }
 
+function getPostedTextAgeHours(postedText) {
+  const text = String(postedText || '').trim().toLowerCase();
+  if (!text) {
+    return null;
+  }
+
+  if (/\byesterday\b/.test(text)) {
+    return 24;
+  }
+
+  const hourMatch = text.match(/\b(\d+)\s*(hour|hours|hr|hrs|h)\b/i);
+  if (hourMatch) {
+    const value = Number(hourMatch[1]);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  const minuteMatch = text.match(/\b(\d+)\s*(minute|minutes|min|mins|m)\b/i);
+  if (minuteMatch) {
+    const value = Number(minuteMatch[1]);
+    return Number.isFinite(value) ? value / 60 : null;
+  }
+
+  if (/\b(day|days|week|weeks|month|months|year|years)\b/.test(text)) {
+    return 24;
+  }
+
+  return null;
+}
+
 function resolvePostedTimestamp(listing) {
   const postedAt = listing && listing.postedAt ? new Date(listing.postedAt) : null;
   if (postedAt && !Number.isNaN(postedAt.getTime())) {
@@ -278,6 +317,25 @@ function resolvePostedTimestamp(listing) {
   }
 
   return null;
+}
+
+function isListingWithinFreshnessWindow(listing, freshnessHours) {
+  const postedAt = resolvePostedTimestamp(listing);
+  if (postedAt) {
+    return isWithinLastHours(postedAt, freshnessHours);
+  }
+
+  const postedTextAgeHours = getPostedTextAgeHours(listing ? listing.postedText : null);
+  if (Number.isFinite(postedTextAgeHours)) {
+    return postedTextAgeHours <= freshnessHours;
+  }
+
+  const createdAt = listing && listing.createdAt ? new Date(listing.createdAt) : null;
+  if (createdAt && !Number.isNaN(createdAt.getTime())) {
+    return isWithinLastHours(createdAt, freshnessHours);
+  }
+
+  return true;
 }
 
 function shouldRepairExisting(existing, incoming) {
@@ -346,7 +404,21 @@ async function hasNotificationMarker(listingIdentity) {
 }
 
 async function processFilter(filterConfig) {
+  const sessionStatus = getFacebookSessionStatus();
+  if (sessionStatus && sessionStatus.loginInProgress) {
+    logger.warn('Skipping filter scan while Facebook login is in progress', {
+      filterId: filterConfig.id,
+      reason: 'facebook_login_in_progress',
+    });
+
+    return {
+      freshListings: [],
+      scrapedCount: 0,
+    };
+  }
+
   const scrapedListings = await scrapeByFilter(filterConfig);
+  const freshnessHours = getListingsFreshnessHours();
   
   // Sort by posted time DESC (newest first) to ensure we process latest data first
   const sortedListings = scrapedListings.sort((a, b) => {
@@ -396,6 +468,20 @@ async function processFilter(filterConfig) {
     const postedAt = scraped.postedAt ? new Date(scraped.postedAt) : null;
     const hasValidPostedAt = Boolean(postedAt && !Number.isNaN(postedAt.getTime()));
     const scrapedAtTime = new Date();
+    const postedTextAgeHours = getPostedTextAgeHours(scraped.postedText);
+
+    if (Number.isFinite(postedTextAgeHours) && postedTextAgeHours > freshnessHours) {
+      staleMisses += 1;
+      logger.info('Listing outside freshness window by posted text age, rejecting', {
+        filterId: filterConfig.id,
+        url: scraped.url,
+        title: scraped.title,
+        postedText: scraped.postedText,
+        postedTextAgeHours,
+        freshnessHours,
+      });
+      continue;
+    }
 
     // Log raw lines to see what we're extracting from Facebook cards
     if (scraped.postedText || !hasValidPostedAt) {
@@ -415,10 +501,10 @@ async function processFilter(filterConfig) {
     const effectiveTimestamp = hasValidPostedAt ? postedAt : scrapedAtTime;
     const isTimestampFromPosted = hasValidPostedAt;
 
-    // Enforce strict 12-hour freshness (from either posted or scraped time)
-    if (!isWithinLastHours(effectiveTimestamp, 12)) {
+    // Enforce strict freshness window (from either posted or scraped time)
+    if (!isWithinLastHours(effectiveTimestamp, freshnessHours)) {
       staleMisses += 1;
-      logger.info('Listing outside 12-hour window, rejecting', {
+      logger.info('Listing outside freshness window, rejecting', {
         filterId: filterConfig.id,
         url: scraped.url,
         title: scraped.title,
@@ -426,6 +512,7 @@ async function processFilter(filterConfig) {
         postedText: scraped.postedText,
         scrapedAt: scrapedAtTime.toISOString(),
         usedTimestamp: isTimestampFromPosted ? 'posted' : 'scraped',
+        freshnessHours,
         ageHours: ((Date.now() - effectiveTimestamp.getTime()) / (60 * 60 * 1000)).toFixed(1),
         effectiveTimestamp: effectiveTimestamp.toISOString(),
       });
@@ -556,6 +643,17 @@ async function processFilter(filterConfig) {
           logger.info('Skipping notification: already sent for this listing', {
             listingId: created.id,
             url: created.url,
+          });
+          continue;
+        }
+
+        if (!isListingWithinFreshnessWindow(created, freshnessHours)) {
+          logger.info('Skipping notification: listing outside freshness window', {
+            listingId: created.id,
+            url: created.url,
+            freshnessHours,
+            postedAt: created.postedAt,
+            postedText: created.postedText,
           });
           continue;
         }

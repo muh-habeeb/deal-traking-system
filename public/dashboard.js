@@ -555,7 +555,7 @@ async function loadListings(options = {}) {
         tbody.innerHTML = '';
 
         if (refresh && listings.length === 0) {
-            notice.textContent = 'No fresh listings found in the last 24 hours. Reconnect Facebook session and refresh again.';
+            notice.textContent = 'No fresh listings found in the configured freshness window. Reconnect Facebook session and refresh again.';
             return;
         }
 

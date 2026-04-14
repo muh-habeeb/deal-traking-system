@@ -82,6 +82,12 @@ npm run docker:up
 npm run docker:logs
 ```
 
+For live Docker development with auto-sync/restart and rebuild-on-dependency/env changes:
+
+```bash
+npm run docker:watch
+```
+
 ## Runtime Notes
 
 - Filters are scanned continuously through the `ScrapeJob` queue table
@@ -169,6 +175,7 @@ For complete production setup (Docker, Nginx, SSL, Cloudflare, 502 troubleshooti
 - `npm run prisma:deploy`
 - `npm run docker:build`
 - `npm run docker:up`
+- `npm run docker:watch`
 - `npm run docker:down`
 - `npm run docker:logs`
 

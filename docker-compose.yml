@@ -54,15 +54,29 @@ services:
       - ./data:/app/data
     develop:
       watch:
+        - path: ./src
+          target: /app/src
+          action: sync+restart
+        - path: ./public
+          target: /app/public
+          action: sync+restart
+        - path: ./scripts
+          target: /app/scripts
+          action: sync+restart
+        - path: ./prisma
+          target: /app/prisma
+          action: sync+restart
+        - path: ./prisma.config.ts
+          target: /app/prisma.config.ts
+          action: sync+restart
         - path: ./package.json
           action: rebuild
-        - path: ./package.lock.json
+        - path: ./package-lock.json
           action: rebuild
-        - path: ./prisma.config.ts
+        - path: ./.env
           action: rebuild
-        - path: .
-          target: .app
-          action: sync
+        - path: ./Dockerfile
+          action: rebuild
 
 
 
