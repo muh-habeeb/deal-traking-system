@@ -6,10 +6,77 @@ const {
   importFacebookSession,
 } = require('../services/facebookSessionService');
 const env = require('../config/env');
+const prisma = require('../config/prisma');
+
+async function getLatestSessionAuthIssue() {
+  const issue = await prisma.scrapeJob.findFirst({
+    where: {
+      OR: [
+        {
+          lastError: {
+            contains: 'facebook session appears logged out or expired',
+            mode: 'insensitive',
+          },
+        },
+        {
+          lastError: {
+            contains: 're-authenticate',
+            mode: 'insensitive',
+          },
+        },
+        {
+          lastError: {
+            contains: 'ineligible for this session/account',
+            mode: 'insensitive',
+          },
+        },
+      ],
+    },
+    select: {
+      filterId: true,
+      lastError: true,
+      updatedAt: true,
+      filter: {
+        select: {
+          keyword: true,
+          location: true,
+        },
+      },
+    },
+    orderBy: {
+      updatedAt: 'desc',
+    },
+  });
+
+  if (!issue || !issue.lastError) {
+    return null;
+  }
+
+  return {
+    message: String(issue.lastError).split('\n')[0].trim(),
+    detectedAt: issue.updatedAt,
+    filterId: issue.filterId,
+    filter: issue.filter || null,
+  };
+}
 
 function getLoginViewerUrl(req) {
   if (env.noVncPublicUrl) {
-    return env.noVncPublicUrl;
+    try {
+      const parsed = new URL(env.noVncPublicUrl);
+      const pathname = String(parsed.pathname || '/').trim();
+      if (!pathname || pathname === '/') {
+        parsed.pathname = '/vnc.html';
+      }
+
+      if (!parsed.searchParams.has('autoconnect')) {
+        parsed.searchParams.set('autoconnect', 'true');
+      }
+
+      return parsed.toString();
+    } catch (_error) {
+      return env.noVncPublicUrl;
+    }
   }
 
   const forwardedProto = String(req.headers['x-forwarded-proto'] || req.protocol || 'http')
@@ -40,18 +107,27 @@ function getLoginViewerUrl(req) {
 async function getSessionStatus(req, res) {
   const status = getFacebookSessionStatus();
   const loginViewerUrl = getLoginViewerUrl(req);
+  let sessionAuthIssue = null;
+
+  try {
+    sessionAuthIssue = await getLatestSessionAuthIssue();
+  } catch (_error) {
+    // Session status should still load even if issue lookup fails.
+    sessionAuthIssue = null;
+  }
 
   if (!status.exists) {
     return res.json({
       ...status,
       loginViewerUrl,
+      sessionAuthIssue,
       hint: status.loginInProgress
         ? 'Complete Facebook login in the Login Screen. Session auto-saves after login.'
         : 'Click Start Facebook Login, then open Login Screen and sign in.',
     });
   }
 
-  return res.json({ ...status, loginViewerUrl });
+  return res.json({ ...status, loginViewerUrl, sessionAuthIssue });
 }
 
 async function startSessionLogin(req, res, next) {

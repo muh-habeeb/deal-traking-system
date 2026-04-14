@@ -292,13 +292,17 @@ async function extractRawListingsFromPage(page, maxListings) {
 
 function buildGlobalFallbackUrl({ baseUrl, keyword, location, minPrice, maxPrice }) {
   const url = new URL(`${baseUrl}/search`);
-  const mergedQuery = [String(keyword || '').trim(), String(location || '').trim(), 'Vehicles']
+  const normalizedLocation = String(location || '').trim();
+  const locationToken = /^(canada|ca)$/i.test(normalizedLocation) ? '' : normalizedLocation;
+  const mergedQuery = [String(keyword || '').trim(), locationToken]
     .filter(Boolean)
     .join(' ')
     .trim();
 
   if (mergedQuery) {
     url.searchParams.set('query', mergedQuery);
+  } else {
+    url.searchParams.set('query', 'Vehicles');
   }
 
   url.searchParams.set('sortBy', 'creation_time_descend');
@@ -317,6 +321,87 @@ function buildGlobalFallbackUrl({ baseUrl, keyword, location, minPrice, maxPrice
   return url.toString();
 }
 
+async function inspectMarketplacePageState(page) {
+  const currentUrl = page.url();
+  const atLoginUrl = /\/login(?:\/|\?|$)/i.test(currentUrl);
+
+  const domState = await page.evaluate(() => {
+    const bodyText = String(document.body?.innerText || '').toLowerCase();
+    const itemAnchorCount = document.querySelectorAll('a[href*="/marketplace/item/"]').length;
+    const hasEmailInput = Boolean(document.querySelector('input[name="email"]'));
+    const hasPasswordInput = Boolean(document.querySelector('input[name="pass"]'));
+    const hasLoginForm = Boolean(document.querySelector('form[action*="/login"]'));
+    const hasLoginAnchor = Boolean(
+      document.querySelector('a[href*="/login/device-based/regular/login"]')
+    );
+    const hasGenericLoginAnchor = Boolean(document.querySelector('a[href*="/login"]'));
+    const hasRecoveryAnchor = Boolean(document.querySelector('a[href*="/recover/initiate"]'));
+    const hasNoResultsMessage = /no listings found/.test(bodyText);
+
+    const hasLoginPromptText =
+      /\b(log in|email address or phone number|forgotten account|forgot password|create new account)\b/.test(
+        bodyText
+      );
+
+    return {
+      hasNoResultsMessage,
+      requiresLogin:
+        hasLoginForm ||
+        hasLoginAnchor ||
+        ((hasGenericLoginAnchor || hasRecoveryAnchor) && itemAnchorCount === 0) ||
+        (hasEmailInput && hasPasswordInput) ||
+        hasLoginPromptText,
+    };
+  });
+
+  return {
+    currentUrl,
+    ...domState,
+    requiresLogin: atLoginUrl || domState.requiresLogin,
+  };
+}
+
+async function ensureMarketplaceSession(page) {
+  const state = await inspectMarketplacePageState(page);
+  if (state.requiresLogin) {
+    throw new Error(
+      `Facebook session appears logged out or expired (url: ${state.currentUrl}). Re-authenticate via dashboard Facebook Login or run npm run auth:facebook.`
+    );
+  }
+
+  return state;
+}
+
+async function extractRawListingsWithRetry(page, maxListings) {
+  const maxAttempts = 2;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await extractRawListingsFromPage(page, maxListings);
+    } catch (error) {
+      const message = String(error && error.message ? error.message : error);
+      const canRetry =
+        attempt < maxAttempts &&
+        (/Execution context was destroyed/i.test(message) || /navigation/i.test(message));
+
+      if (!canRetry) {
+        throw error;
+      }
+
+      logger.warn('Raw listing extraction race detected, retrying once', {
+        attempt,
+        maxAttempts,
+        error: message,
+      });
+
+      await page.waitForTimeout(1200);
+      await ensureMarketplaceSession(page);
+    }
+  }
+
+  return [];
+}
+
 async function loadAndExtractListings(page, url, maxListings) {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForTimeout(1800 + Math.floor(Math.random() * 1200));
@@ -325,6 +410,8 @@ async function loadAndExtractListings(page, url, maxListings) {
   if (currentUrl.includes('/marketplace/ineligible')) {
     throw new Error('Facebook Marketplace is ineligible for this session/account. Re-authenticate with a Marketplace-enabled account.');
   }
+
+  await ensureMarketplaceSession(page);
 
   for (let i = 0; i < 4; i += 1) {
     try {
@@ -358,7 +445,17 @@ async function loadAndExtractListings(page, url, maxListings) {
     await page.waitForTimeout(1500 + Math.floor(Math.random() * 1000));
   }
 
-  return extractRawListingsFromPage(page, maxListings);
+  const finalCount = await page.locator('a[href*="/marketplace/item/"]').count();
+  if (finalCount === 0) {
+    const state = await ensureMarketplaceSession(page);
+    if (state.hasNoResultsMessage) {
+      logger.info('Marketplace returned no listings for query', {
+        url,
+      });
+    }
+  }
+
+  return extractRawListingsWithRetry(page, maxListings);
 }
 
 async function scrapeWithBrowser(filterConfig, launchProxy, storageStatePath) {

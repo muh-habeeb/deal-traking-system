@@ -34,14 +34,37 @@ const corsOrigins = String(process.env.CORS_ORIGIN || '')
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+function getNoVncCspSources() {
+    const raw = String(process.env.NO_VNC_PUBLIC_URL || '').trim();
+    if (!raw) {
+        return { frameSources: [], connectSources: [] };
+    }
+
+    try {
+        const parsed = new URL(raw);
+        const httpOrigin = parsed.origin;
+        const wsProtocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsOrigin = `${wsProtocol}//${parsed.host}`;
+
+        return {
+            frameSources: [httpOrigin],
+            connectSources: [httpOrigin, wsOrigin],
+        };
+    } catch (_error) {
+        return { frameSources: [], connectSources: [] };
+    }
+}
+
+const { frameSources: noVncFrameSources, connectSources: noVncConnectSources } = getNoVncCspSources();
+
 const cspDirectives = {
     defaultSrc: ["'self'"],
     scriptSrc: ["'self'"],
     styleSrc: ["'self'", "'unsafe-inline'"],
     imgSrc: ["'self'", 'data:', 'https:'],
-    connectSrc: ["'self'"],
+    connectSrc: ["'self'", ...noVncConnectSources],
     fontSrc: ["'self'", 'data:'],
-    frameSrc: ["'self'"],
+    frameSrc: ["'self'", ...noVncFrameSources],
     objectSrc: ["'none'"],
     baseUri: ["'self'"],
     frameAncestors: ["'self'"],

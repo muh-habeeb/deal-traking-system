@@ -106,6 +106,35 @@ function setSessionButtonsVisibility(status) {
     buttons.refresh.hidden = false;
 }
 
+function renderSessionAuthIssue(status) {
+    const holder = document.getElementById('sessionAuthIssue');
+    if (!holder) {
+        return;
+    }
+
+    const issue = status?.sessionAuthIssue;
+    if (!issue || !issue.message) {
+        holder.style.display = 'none';
+        holder.innerHTML = '';
+        return;
+    }
+
+    const detectedAt = issue.detectedAt
+        ? new Date(issue.detectedAt).toLocaleString()
+        : 'recently';
+    const filterKeyword = issue.filter?.keyword || 'unknown';
+    const filterLocation = issue.filter?.location || 'unknown';
+
+    holder.style.display = 'block';
+    holder.innerHTML = `
+      <span class="badge warn">Facebook Session Error</span><br/>
+      ${escapeHtml(issue.message)}<br/>
+      Detected: ${escapeHtml(detectedAt)}<br/>
+      Filter: ${escapeHtml(`${filterKeyword} @ ${filterLocation}`)}<br/>
+      Action: Click <b>Login with Facebook</b> to reconnect your session.
+    `;
+}
+
 function stopSessionStatusPolling() {
     if (sessionStatusPoller) {
         clearInterval(sessionStatusPoller);
@@ -572,6 +601,7 @@ async function loadSessionStatus() {
 
         const data = await api('/api/facebook-session/status');
         updateSessionViewer(data);
+        renderSessionAuthIssue(data);
 
         if (data.loginInProgress) {
             ensureSessionStatusPolling();
@@ -596,6 +626,7 @@ async function loadSessionStatus() {
         setSessionButtonsVisibility(data);
     } catch (error) {
         stopSessionStatusPolling();
+        renderSessionAuthIssue(null);
         holder.textContent = error.message;
     } finally {
         if (!sessionActionInProgress) {
@@ -659,6 +690,18 @@ function openSessionViewer() {
     viewerWrap.style.display = 'block';
     if (viewerFrame.getAttribute('src') !== sessionViewerUrl) {
         viewerFrame.setAttribute('src', sessionViewerUrl);
+    }
+
+    // For cross-origin noVNC links, open a new tab too because some CSP/proxy policies block iframe embedding.
+    try {
+        const target = new URL(sessionViewerUrl, window.location.href);
+        if (target.origin !== window.location.origin) {
+            window.open(target.toString(), '_blank', 'noopener,noreferrer');
+            const holder = document.getElementById('sessionStatus');
+            holder.innerHTML = `${holder.innerHTML}<br/>Opened Login Screen in a new tab (cross-origin fallback).`;
+        }
+    } catch (_error) {
+        // Ignore URL parsing issues and rely on iframe attempt.
     }
 
     viewerWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
