@@ -108,8 +108,13 @@ async function getRecentListings(limit = 50) {
       return { listing, resolvedPostedTime };
     })
     .filter(({ listing, resolvedPostedTime }) => {
+      const hasPostedText = Boolean(String(listing.postedText || '').trim());
       const postedTextAgeHours = getPostedTextAgeHours(listing.postedText);
       if (Number.isFinite(postedTextAgeHours) && postedTextAgeHours > windowHours) {
+        return false;
+      }
+
+      if (hasPostedText && !resolvedPostedTime && !Number.isFinite(postedTextAgeHours)) {
         return false;
       }
 

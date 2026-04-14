@@ -325,9 +325,14 @@ function isListingWithinFreshnessWindow(listing, freshnessHours) {
     return isWithinLastHours(postedAt, freshnessHours);
   }
 
+  const hasPostedText = Boolean(String(listing && listing.postedText ? listing.postedText : '').trim());
   const postedTextAgeHours = getPostedTextAgeHours(listing ? listing.postedText : null);
   if (Number.isFinite(postedTextAgeHours)) {
     return postedTextAgeHours <= freshnessHours;
+  }
+
+  if (hasPostedText) {
+    return false;
   }
 
   const createdAt = listing && listing.createdAt ? new Date(listing.createdAt) : null;
@@ -469,6 +474,18 @@ async function processFilter(filterConfig) {
     const hasValidPostedAt = Boolean(postedAt && !Number.isNaN(postedAt.getTime()));
     const scrapedAtTime = new Date();
     const postedTextAgeHours = getPostedTextAgeHours(scraped.postedText);
+    const hasPostedText = Boolean(String(scraped.postedText || '').trim());
+
+    if (hasPostedText && !hasValidPostedAt && !Number.isFinite(postedTextAgeHours)) {
+      staleMisses += 1;
+      logger.info('Listing rejected: posted text age is not parseable under strict freshness mode', {
+        filterId: filterConfig.id,
+        url: scraped.url,
+        title: scraped.title,
+        postedText: scraped.postedText,
+      });
+      continue;
+    }
 
     if (Number.isFinite(postedTextAgeHours) && postedTextAgeHours > freshnessHours) {
       staleMisses += 1;
