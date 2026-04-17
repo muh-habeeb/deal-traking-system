@@ -64,7 +64,28 @@ async function hasStorageState(storageStatePath) {
     return false;
   }
 
-  return fs.existsSync(storageStatePath);
+  if (!fs.existsSync(storageStatePath)) {
+    return false;
+  }
+
+  try {
+    const raw = fs.readFileSync(storageStatePath, 'utf8');
+    if (!raw || !raw.trim()) {
+      logger.warn('Storage state file is empty. Ignoring saved session file.', {
+        storageStatePath,
+      });
+      return false;
+    }
+
+    JSON.parse(raw);
+    return true;
+  } catch (error) {
+    logger.warn('Storage state JSON is invalid. Ignoring saved session file.', {
+      storageStatePath,
+      error: error.message,
+    });
+    return false;
+  }
 }
 
 function buildContextOptions(storageStatePath) {

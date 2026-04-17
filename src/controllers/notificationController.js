@@ -26,7 +26,7 @@ async function sendTelegramNotificationTest(_req, res, next) {
 
     return res.json({
       message:
-        result && result.recipientMode === 'chat_id'
+        result && result.recipientMode === 'chat_id_fallback'
           ? 'Telegram test sent using bot chat-id fallback (no username routing).'
           : 'Telegram test sent',
       result,
