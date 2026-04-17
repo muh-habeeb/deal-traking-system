@@ -1,5 +1,6 @@
 const env = require('../config/env');
 const logger = require('../utils/logger');
+const { getTelegramUsername } = require('./settingsService');
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -9,52 +10,16 @@ function isTelegramReady() {
   return Boolean(env.telegram.enabled && env.telegram.token && env.telegram.chatId);
 }
 
-function formatPrice(price) {
-  if (price === null || price === undefined) {
-    return 'N/A';
+function resolveTelegramUsername() {
+  const fromSettings = String(getTelegramUsername() || '').trim().replace(/^@/, '');
+  if (fromSettings) {
+    return fromSettings;
   }
 
-  return `CA$${Number(price).toLocaleString('en-CA')}`;
+  return String(env.telegram.username || '').trim().replace(/^@/, '');
 }
 
-function formatPostedDate(postedAt, postedText) {
-  const candidate = postedAt;
-
-  if (candidate) {
-    const parsed = new Date(candidate);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toLocaleString('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      });
-    }
-  }
-
-  if (postedText && postedText.toLowerCase() !== 'none') {
-    return postedText;
-  }
-
-  return 'Just scraped';
-}
-
-function buildListingMessage(listing) {
-  return [
-    'New Car Deal',
-    '',
-    `${listing.vehicleName || listing.title || 'N/A'}`,
-    `Price: ${formatPrice(listing.price)}`,
-    `Location: ${listing.location || 'N/A'}`,
-    `Posted: ${formatPostedDate(listing.postedAt, listing.postedText)}`,
-    '',
-    listing.url || 'N/A',
-  ].join('\n');
-}
-
-async function sendTelegramMessage(text) {
-  if (!isTelegramReady()) {
-    return { skipped: true, reason: 'Telegram disabled or missing credentials' };
-  }
-
+async function sendTelegramMessageToChat(text, chatId) {
   const endpoint = `${env.telegram.apiBaseUrl}/bot${env.telegram.token}/sendMessage`;
   const retries = Math.max(0, Number(env.telegram.requestRetries || 0));
   const timeoutMs = Math.max(1000, Number(env.telegram.requestTimeoutMs || 15000));
@@ -72,7 +37,7 @@ async function sendTelegramMessage(text) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          chat_id: env.telegram.chatId,
+          chat_id: chatId,
           text,
           disable_web_page_preview: true,
         }),
@@ -121,6 +86,90 @@ async function sendTelegramMessage(text) {
       throw error;
     } finally {
       clearTimeout(timeout);
+    }
+  }
+
+  throw lastError || new Error('Telegram request failed');
+}
+
+function formatPrice(price) {
+  if (price === null || price === undefined) {
+    return 'N/A';
+  }
+
+  return `CA$${Number(price).toLocaleString('en-CA')}`;
+}
+
+function formatPostedDate(postedAt, postedText) {
+  const candidate = postedAt;
+
+  if (candidate) {
+    const parsed = new Date(candidate);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleString('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+    }
+  }
+
+  if (postedText && postedText.toLowerCase() !== 'none') {
+    return postedText;
+  }
+
+  return 'Just scraped';
+}
+
+function buildListingMessage(listing) {
+  return [
+    'New Car Deal',
+    '',
+    `${listing.vehicleName || listing.title || 'N/A'}`,
+    `Price: ${formatPrice(listing.price)}`,
+    `Location: ${listing.location || 'N/A'}`,
+    `Posted: ${formatPostedDate(listing.postedAt, listing.postedText)}`,
+    '',
+    listing.url || 'N/A',
+  ].join('\n');
+}
+
+async function sendTelegramMessage(text) {
+  if (!isTelegramReady()) {
+    return { skipped: true, reason: 'Telegram disabled or missing credentials' };
+  }
+
+  const username = resolveTelegramUsername();
+  const recipients = [];
+
+  if (username) {
+    recipients.push(`@${username}`);
+  }
+
+  recipients.push(env.telegram.chatId);
+
+  const uniqueRecipients = Array.from(new Set(recipients.filter(Boolean)));
+  let lastError = null;
+
+  for (let index = 0; index < uniqueRecipients.length; index += 1) {
+    const chatId = uniqueRecipients[index];
+    try {
+      const payload = await sendTelegramMessageToChat(text, chatId);
+      return {
+        ...(payload || {}),
+        recipientChatId: chatId,
+        recipientMode: chatId.startsWith('@') ? 'username' : 'chat_id',
+      };
+    } catch (error) {
+      lastError = error;
+      const canFallback = index < uniqueRecipients.length - 1;
+      if (!canFallback) {
+        break;
+      }
+
+      logger.warn('Telegram send failed for primary recipient, trying fallback recipient', {
+        chatId,
+        error: error.message,
+      });
     }
   }
 

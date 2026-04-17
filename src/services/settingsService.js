@@ -7,7 +7,18 @@ const DEFAULT_SETTINGS = {
   receiverEmail: env.alertTo || '',
   emailSendingEnabled: true,
   telegramSendingEnabled: env.telegram.enabled,
+  telegramUsername: env.telegram.username || '',
 };
+
+function normalizeTelegramUsername(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  const withoutAt = raw.startsWith('@') ? raw.slice(1) : raw;
+  return withoutAt.replace(/\s+/g, '');
+}
 
 function ensureSettingsFile() {
   const dir = path.dirname(settingsPath);
@@ -35,6 +46,11 @@ function normalizeSettings(rawSettings) {
       typeof source.telegramSendingEnabled === 'boolean'
         ? source.telegramSendingEnabled
         : DEFAULT_SETTINGS.telegramSendingEnabled,
+    telegramUsername: normalizeTelegramUsername(
+      source.telegramUsername !== undefined
+        ? source.telegramUsername
+        : DEFAULT_SETTINGS.telegramUsername
+    ),
   };
 }
 
@@ -88,6 +104,19 @@ function setTelegramSendingEnabled(telegramSendingEnabled) {
   });
 }
 
+function getTelegramUsername() {
+  const settings = readSettings();
+  return settings.telegramUsername;
+}
+
+function setTelegramUsername(telegramUsername) {
+  const settings = readSettings();
+  return writeSettings({
+    ...settings,
+    telegramUsername: normalizeTelegramUsername(telegramUsername),
+  });
+}
+
 module.exports = {
   getReceiverEmail,
   setReceiverEmail,
@@ -95,4 +124,7 @@ module.exports = {
   setEmailSendingEnabled,
   getTelegramSendingEnabled,
   setTelegramSendingEnabled,
+  getTelegramUsername,
+  setTelegramUsername,
+  normalizeTelegramUsername,
 };

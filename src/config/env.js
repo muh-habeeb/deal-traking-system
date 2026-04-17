@@ -46,6 +46,7 @@ const notificationDelaySeconds =
 
 const telegramToken = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const telegramChatId = String(process.env.TELEGRAM_CHAT_ID || '').trim();
+const telegramUsername = String(process.env.TELEGRAM_USERNAME || '').trim().replace(/^@/, '');
 const hasTelegramCredentials = Boolean(telegramToken && telegramChatId);
 const workerIndexSource =
   process.env.WORKER_ID !== undefined ? process.env.WORKER_ID : process.env.NODE_APP_INSTANCE;
@@ -114,6 +115,7 @@ const env = {
         : parseBoolean(process.env.TELEGRAM_ENABLED, false),
     token: telegramToken,
     chatId: telegramChatId,
+    username: telegramUsername,
     apiBaseUrl: process.env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org',
     requestTimeoutMs: parseSecondsToMs(process.env.TELEGRAM_REQUEST_TIMEOUT_SECONDS, 15),
     requestRetries: Math.max(0, Math.trunc(parseNumber(process.env.TELEGRAM_REQUEST_RETRIES, 2))),

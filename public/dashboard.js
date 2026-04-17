@@ -67,7 +67,76 @@ let sessionViewerUrl = '';
 let sessionActionInProgress = false;
 let emailSendingEnabled = true;
 let telegramSendingEnabled = false;
+let telegramUsername = '';
 const SESSION_STATUS_POLL_MS = 5000;
+const HARD_MAX_LISTING_HOURS = 12;
+
+function normalizeTelegramUsername(value) {
+    const raw = String(value || '').trim();
+    if (!raw) {
+        return '';
+    }
+
+    return raw.replace(/^@/, '').replace(/\s+/g, '');
+}
+
+function displayTelegramUsername(value) {
+    const normalized = normalizeTelegramUsername(value);
+    return normalized ? `@${normalized}` : '';
+}
+
+function isValidTelegramUsername(value) {
+    return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(String(value || '').trim());
+}
+
+function getPostedTextAgeHours(postedText) {
+    const text = String(postedText || '').trim().toLowerCase();
+    if (!text) {
+        return null;
+    }
+
+    if (/\byesterday\b/.test(text)) {
+        return 24;
+    }
+
+    const hourMatch = text.match(/\b(\d+)\s*(hour|hours|hr|hrs|h)\b/i);
+    if (hourMatch) {
+        const value = Number(hourMatch[1]);
+        return Number.isFinite(value) ? value : null;
+    }
+
+    const minuteMatch = text.match(/\b(\d+)\s*(minute|minutes|min|mins|m)\b/i);
+    if (minuteMatch) {
+        const value = Number(minuteMatch[1]);
+        return Number.isFinite(value) ? value / 60 : null;
+    }
+
+    if (/\b(day|days|week|weeks|month|months|year|years)\b/.test(text)) {
+        return 24;
+    }
+
+    return null;
+}
+
+function getListingAgeHours(listing) {
+    if (listing && listing.postedAt) {
+        const postedAtMs = new Date(listing.postedAt).getTime();
+        if (!Number.isNaN(postedAtMs)) {
+            return (Date.now() - postedAtMs) / (60 * 60 * 1000);
+        }
+    }
+
+    return getPostedTextAgeHours(listing && listing.postedText);
+}
+
+function isWithinListingWindow(listing, maxHours = HARD_MAX_LISTING_HOURS) {
+    const ageHours = getListingAgeHours(listing);
+    if (!Number.isFinite(ageHours)) {
+        return true;
+    }
+
+    return ageHours <= maxHours;
+}
 
 function getSessionButtons() {
     return {
@@ -229,6 +298,8 @@ function renderEmailDeliveryControls() {
 function renderTelegramDeliveryControls() {
     const toggleBtn = document.getElementById('toggleTelegramSendingBtn');
     const status = document.getElementById('telegramDeliveryStatus');
+    const notice = document.getElementById('telegramNotice');
+    const hasUsername = Boolean(normalizeTelegramUsername(telegramUsername));
 
     if (!toggleBtn || !status) {
         return;
@@ -239,13 +310,27 @@ function renderTelegramDeliveryControls() {
     if (telegramSendingEnabled) {
         toggleBtn.textContent = 'Pause Telegram Alerts';
         toggleBtn.classList.add('danger');
-        status.innerHTML = '<span class="badge">Telegram Alerts Active</span>';
+        status.innerHTML = hasUsername
+            ? `<span class="badge">Telegram Alerts Active</span> <span class="badge">${escapeHtml(displayTelegramUsername(telegramUsername))}</span>`
+            : '<span class="badge">Telegram Alerts Active</span> <span class="badge warn">Fallback: chat id</span>';
+        if (notice) {
+            notice.textContent = hasUsername
+                ? `Telegram recipient saved: ${displayTelegramUsername(telegramUsername)}`
+                : 'No Telegram username saved. Using current bot chat-id fallback.';
+        }
         return;
     }
 
     toggleBtn.textContent = 'Resume Telegram Alerts';
     toggleBtn.classList.add('success');
-    status.innerHTML = '<span class="badge warn">Telegram Alerts Paused</span>';
+    status.innerHTML = hasUsername
+        ? `<span class="badge warn">Telegram Alerts Paused</span> <span class="badge">${escapeHtml(displayTelegramUsername(telegramUsername))}</span>`
+        : '<span class="badge warn">Telegram Alerts Paused</span> <span class="badge warn">Fallback: chat id</span>';
+    if (notice) {
+        notice.textContent = hasUsername
+            ? `Telegram recipient saved: ${displayTelegramUsername(telegramUsername)}`
+            : 'Set Telegram username to route by username. Until then, bot uses configured chat id.';
+    }
 }
 
 async function api(path, options = {}) {
@@ -360,7 +445,7 @@ async function toggleEmailSending() {
 }
 
 async function sendTestTelegram() {
-    const notice = document.getElementById('emailNotice');
+    const notice = document.getElementById('telegramNotice');
     notice.textContent = 'Sending test Telegram message...';
 
     try {
@@ -371,8 +456,41 @@ async function sendTestTelegram() {
     }
 }
 
+async function saveTelegramRecipient(event) {
+    event.preventDefault();
+    const notice = document.getElementById('telegramNotice');
+    const input = document.getElementById('telegramUsername');
+    const normalized = normalizeTelegramUsername(input.value);
+
+    if (!normalized) {
+        notice.textContent = 'Telegram username is required.';
+        return;
+    }
+
+    if (!isValidTelegramUsername(normalized)) {
+        notice.textContent = 'Invalid Telegram username. Use letters/numbers/underscore, 5-32 chars.';
+        return;
+    }
+
+    notice.textContent = 'Saving Telegram username...';
+
+    try {
+        const result = await api('/api/settings/telegram-recipient', {
+            method: 'PUT',
+            body: JSON.stringify({ telegramUsername: normalized }),
+        });
+
+        telegramUsername = normalizeTelegramUsername(result.telegramUsername);
+        input.value = displayTelegramUsername(telegramUsername);
+        renderTelegramDeliveryControls();
+        notice.textContent = `Telegram username saved: ${displayTelegramUsername(telegramUsername)}`;
+    } catch (error) {
+        notice.textContent = error.message;
+    }
+}
+
 async function toggleTelegramSending() {
-    const notice = document.getElementById('emailNotice');
+    const notice = document.getElementById('telegramNotice');
     const toggleBtn = document.getElementById('toggleTelegramSendingBtn');
     const nextEnabled = !telegramSendingEnabled;
     const nextActionLabel = nextEnabled ? 'Resuming' : 'Pausing';
@@ -553,14 +671,16 @@ async function loadListings(options = {}) {
     try {
         const endpoint = refresh ? '/api/listings?limit=40&refresh=true' : '/api/listings?limit=40';
         const listings = await api(endpoint);
+        const visibleListings = listings.filter((listing) => isWithinListingWindow(listing));
+        const staleFilteredCount = listings.length - visibleListings.length;
         tbody.innerHTML = '';
 
-        if (refresh && listings.length === 0) {
+        if (refresh && visibleListings.length === 0) {
             notice.textContent = 'No fresh listings found in the configured freshness window. Reconnect Facebook session and refresh again.';
             return;
         }
 
-        for (const listing of listings) {
+        for (const listing of visibleListings) {
             const tr = document.createElement('tr');
             const imageSrc = toImageProxyUrl(listing.image);
             const imageCell = imageSrc
@@ -586,7 +706,9 @@ async function loadListings(options = {}) {
             tbody.appendChild(tr);
         }
 
-        notice.textContent = `${listings.length} listings loaded.`;
+        notice.textContent = staleFilteredCount > 0
+            ? `${visibleListings.length} listings loaded (${staleFilteredCount} older than ${HARD_MAX_LISTING_HOURS}h hidden).`
+            : `${visibleListings.length} listings loaded.`;
     } catch (error) {
         notice.textContent = error.message;
     }
@@ -710,6 +832,7 @@ function openSessionViewer() {
 
 function wireEvents() {
     document.getElementById('emailForm').addEventListener('submit', saveEmail);
+    document.getElementById('telegramRecipientForm').addEventListener('submit', saveTelegramRecipient);
     document.getElementById('sendTestEmailBtn').addEventListener('click', sendTestEmail);
     document.getElementById('sendTestTelegramBtn').addEventListener('click', sendTestTelegram);
     document.getElementById('toggleEmailSendingBtn').addEventListener('click', toggleEmailSending);
@@ -745,6 +868,7 @@ window.addEventListener('beforeunload', () => {
     await Promise.all([
         loadEmail(),
         loadEmailDeliverySettings(),
+        loadTelegramRecipientSettings(),
         loadTelegramDeliverySettings(),
         loadSessionStatus(),
         loadFilters(),

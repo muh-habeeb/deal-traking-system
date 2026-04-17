@@ -21,6 +21,12 @@
           <input id="receiverEmail" type="email" placeholder="you@example.com" required />
           <button type="submit" style="margin-top: 10px;">Save Email</button>
         </form>
+        <form id="telegramRecipientForm" style="margin-top: 12px;">
+          <label for="telegramUsername">Telegram Username</label>
+          <input id="telegramUsername" type="text" placeholder="@your_username" autocomplete="off" />
+          <p class="small" style="margin: 8px 0 0;">This is used as recipient identity. Telegram delivery still uses your configured bot token/chat id.</p>
+          <button type="submit" style="margin-top: 10px;">Save Telegram Username</button>
+        </form>
         <div class="row" style="margin-top: 10px;">
           <button id="sendTestEmailBtn" class="secondary">Send Test Email</button>
           <button id="toggleEmailSendingBtn" class="danger">Pause Sending Emails</button>
@@ -31,6 +37,7 @@
         </div>
         <div id="emailDeliveryStatus" class="notice"></div>
         <div id="telegramDeliveryStatus" class="notice"></div>
+        <div id="telegramNotice" class="notice"></div>
         <div id="emailNotice" class="notice"></div>
       </section>
 
@@ -171,6 +178,6 @@
     </section>
   </div>
 
-  <script src="/dashboard.js?v=20260415-login-stability-2"></script>
+  <script src="/dashboard.js?v=20260417-telegram-recipient-2"></script>
 </body>
 </html>

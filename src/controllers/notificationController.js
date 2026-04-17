@@ -16,13 +16,33 @@ async function sendNotificationTest(_req, res, next) {
 async function sendTelegramNotificationTest(_req, res, next) {
   try {
     const result = await sendTestTelegramAlert();
+
+    if (result && result.skipped) {
+      return res.status(400).json({
+        message: result.reason,
+        result,
+      });
+    }
+
     return res.json({
-      message: result && result.skipped ? 'Telegram test skipped' : 'Telegram test sent',
+      message:
+        result && result.recipientMode === 'chat_id'
+          ? 'Telegram test sent using bot chat-id fallback (no username routing).'
+          : 'Telegram test sent',
       result,
     });
   } catch (error) {
+    const rawMessage = String(error && error.message ? error.message : 'Telegram test failed');
+    const lower = rawMessage.toLowerCase();
+    const needsStartMessage =
+      lower.includes('chat not found') ||
+      lower.includes('bot was blocked by the user') ||
+      lower.includes('forbidden');
+
     return res.status(error.status || 502).json({
-      message: error.message || 'Telegram test failed',
+      message: needsStartMessage
+        ? 'Telegram cannot reach this user yet. The user must open your bot and send /start once, then test again.'
+        : rawMessage,
     });
   }
 }

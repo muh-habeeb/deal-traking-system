@@ -6,6 +6,8 @@ const {
   updateEmailDeliverySettings,
   getTelegramDeliverySettings,
   updateTelegramDeliverySettings,
+  getTelegramRecipientSettings,
+  updateTelegramRecipientSettings,
 } = require('../controllers/settingsController');
 
 const router = express.Router();
@@ -16,5 +18,7 @@ router.get('/email-delivery', getEmailDeliverySettings);
 router.put('/email-delivery', updateEmailDeliverySettings);
 router.get('/telegram-delivery', getTelegramDeliverySettings);
 router.put('/telegram-delivery', updateTelegramDeliverySettings);
+router.get('/telegram-recipient', getTelegramRecipientSettings);
+router.put('/telegram-recipient', updateTelegramRecipientSettings);
 
 module.exports = router;
