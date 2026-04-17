@@ -38,10 +38,15 @@ async function sendTelegramNotificationTest(_req, res, next) {
       lower.includes('chat not found') ||
       lower.includes('bot was blocked by the user') ||
       lower.includes('forbidden');
+    const webhookConflict =
+      lower.includes("can't use getupdates") ||
+      (lower.includes('webhook') && lower.includes('active'));
 
     return res.status(error.status || 502).json({
       message: needsStartMessage
         ? 'Telegram cannot reach this user yet. The user must open your bot and send /start once, then test again.'
+        : webhookConflict
+          ? 'Webhook mode is active for this bot. Username lookup via getUpdates is blocked. Keep chat-id fallback, or disable webhook (deleteWebhook) if you want polling-based username lookup.'
         : rawMessage,
     });
   }

@@ -157,6 +157,88 @@ async function fetchTelegramUpdates() {
   throw lastError || new Error('Telegram updates request failed');
 }
 
+function isWebhookConflictError(error) {
+  const status = Number(error && error.status);
+  const message = String(error && error.message ? error.message : '').toLowerCase();
+  return (
+    status === 409 ||
+    (message.includes("can't use getupdates") && message.includes('webhook is active'))
+  );
+}
+
+async function getChatByUsername(username) {
+  const normalized = String(username || '').trim().replace(/^@/, '');
+  if (!normalized) {
+    return null;
+  }
+
+  const endpoint = `${env.telegram.apiBaseUrl}/bot${env.telegram.token}/getChat`;
+  const retries = Math.max(0, Number(env.telegram.requestRetries || 0));
+  const timeoutMs = Math.max(1000, Number(env.telegram.requestTimeoutMs || 15000));
+
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: `@${normalized}`,
+        }),
+        signal: controller.signal,
+      });
+
+      const bodyText = await response.text().catch(() => '');
+      let payload = null;
+      try {
+        payload = bodyText ? JSON.parse(bodyText) : null;
+      } catch (_error) {
+        payload = null;
+      }
+
+      if (!response.ok || !payload || payload.ok === false) {
+        const description =
+          (payload && payload.description) || bodyText || 'Unknown Telegram API error';
+        const apiError = new Error(
+          `Telegram API request failed (${response.status}): ${description}`
+        );
+        apiError.status = response.status >= 500 ? 502 : 400;
+        throw apiError;
+      }
+
+      const chatId = payload && payload.result ? payload.result.id : null;
+      if (chatId === null || chatId === undefined) {
+        return null;
+      }
+
+      return String(chatId);
+    } catch (error) {
+      lastError = error;
+      const code = error && error.cause && error.cause.code ? error.cause.code : '';
+      const isAbort = error && error.name === 'AbortError';
+      const isNetworkIssue =
+        isAbort || ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'].includes(code);
+
+      if (attempt < retries && isNetworkIssue) {
+        await sleep(350 * (attempt + 1));
+        continue;
+      }
+
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  throw lastError || new Error('Telegram getChat request failed');
+}
+
 function collectPotentialUsersFromUpdate(update) {
   const users = [];
 
@@ -181,7 +263,35 @@ async function resolveUsernameChatId(username) {
     return null;
   }
 
-  const updates = await fetchTelegramUpdates();
+  try {
+    const chatId = await getChatByUsername(normalized);
+    if (chatId) {
+      return chatId;
+    }
+  } catch (error) {
+    const message = String(error && error.message ? error.message : '').toLowerCase();
+    const isResolvableLookupMiss =
+      message.includes('chat not found') || message.includes('bad request: chat not found');
+
+    if (!isResolvableLookupMiss) {
+      throw error;
+    }
+  }
+
+  let updates = [];
+  try {
+    updates = await fetchTelegramUpdates();
+  } catch (error) {
+    if (isWebhookConflictError(error)) {
+      const conflictError = new Error(
+        'Telegram webhook is active, so username lookup via updates is blocked. Ask the user to send /start and keep TELEGRAM_CHAT_ID fallback, or disable webhook with deleteWebhook if you want polling lookup.'
+      );
+      conflictError.status = 400;
+      throw conflictError;
+    }
+
+    throw error;
+  }
 
   for (let i = updates.length - 1; i >= 0; i -= 1) {
     const update = updates[i];
