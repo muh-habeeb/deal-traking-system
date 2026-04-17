@@ -52,31 +52,6 @@ services:
     volumes:
       - ./playwright:/app/playwright
       - ./data:/app/data
-    develop:
-      watch:
-        - path: ./src
-          target: /app/src
-          action: sync+restart
-        - path: ./public
-          target: /app/public
-          action: sync+restart
-        - path: ./scripts
-          target: /app/scripts
-          action: sync+restart
-        - path: ./prisma
-          target: /app/prisma
-          action: sync+restart
-        - path: ./prisma.config.ts
-          target: /app/prisma.config.ts
-          action: sync+restart
-        - path: ./package.json
-          action: rebuild
-        - path: ./package-lock.json
-          action: rebuild
-        - path: ./.env
-          action: rebuild
-        - path: ./Dockerfile
-          action: rebuild
 
 
 

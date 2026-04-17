@@ -8,6 +8,39 @@ const { buildChromiumLaunchOptions } = require('../utils/playwright');
 const { getProxyForWorker } = require('../services/proxyService');
 const logger = require('../utils/logger');
 
+function isLaunchCrashError(error) {
+  const message = String(error && error.message ? error.message : error).toLowerCase();
+  return (
+    message.includes('target page, context or browser has been closed') ||
+    message.includes('signal=sigtrap') ||
+    message.includes('process did exit') ||
+    message.includes('browsertype.launch')
+  );
+}
+
+async function launchBrowserWithFallback(launchProxy) {
+  try {
+    return await chromium.launch(buildChromiumLaunchOptions({ proxy: launchProxy }));
+  } catch (error) {
+    if (!isLaunchCrashError(error)) {
+      throw error;
+    }
+
+    logger.warn('Primary browser launch failed, retrying with conservative Chromium options', {
+      error: error.message,
+      proxy: launchProxy ? launchProxy.server : 'direct',
+    });
+
+    return chromium.launch(
+      buildChromiumLaunchOptions({
+        proxy: launchProxy,
+        forceStableChannel: true,
+        conservativeArgs: true,
+      })
+    );
+  }
+}
+
 function getStorageStatePath(workerIndex = env.workerIndex, proxyIndex = null) {
   const defaultStorageStatePath = path.resolve(process.cwd(), env.playwrightStorageStatePath);
 
@@ -459,7 +492,7 @@ async function loadAndExtractListings(page, url, maxListings) {
 }
 
 async function scrapeWithBrowser(filterConfig, launchProxy, storageStatePath) {
-  const browser = await chromium.launch(buildChromiumLaunchOptions({ proxy: launchProxy }));
+  const browser = await launchBrowserWithFallback(launchProxy);
 
   let context = null;
   try {
@@ -534,7 +567,8 @@ async function scrapeWithBrowser(filterConfig, launchProxy, storageStatePath) {
 async function scrapeByFilter(filterConfig) {
   const proxyAttempts = env.proxy.enabled ? env.proxy.maxFailoverAttempts : 1;
   const includeDirectFallback = env.proxy.enabled;
-  const maxAttempts = proxyAttempts + (includeDirectFallback ? 1 : 0);
+  const configuredAttempts = proxyAttempts + (includeDirectFallback ? 1 : 0);
+  const maxAttempts = Math.max(configuredAttempts, env.playwrightLaunchRetries);
   let lastError = null;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {

@@ -4,6 +4,7 @@ const { chromium } = require('playwright');
 const { getStorageStatePath } = require('../scrapers/facebookMarketplaceScraper');
 const env = require('../config/env');
 const { buildChromiumLaunchOptions } = require('../utils/playwright');
+const logger = require('../utils/logger');
 
 let activeBrowser = null;
 let activeContext = null;
@@ -12,10 +13,12 @@ let startedAt = null;
 let autoSaveInterval = null;
 let saveInProgress = false;
 let lastAutoSavedAt = null;
+let consecutiveAuthenticatedPolls = 0;
 
 const FACEBOOK_LOGIN_URL = 'https://www.facebook.com/login';
 const FACEBOOK_COOKIE_SCOPE_URL = 'https://www.facebook.com';
-const AUTO_SAVE_POLL_MS = 3000;
+const AUTO_SAVE_POLL_MS = 5000;
+const REQUIRED_STABLE_POLLS = 2;
 
 function hasLinuxXServer() {
   const display = String(process.env.DISPLAY || '').trim();
@@ -110,9 +113,31 @@ function clearAutoSaveInterval() {
   }
 }
 
-async function hasAuthenticatedFacebookSession(context) {
+function isLoginOrCheckpointUrl(urlValue) {
+  const url = String(urlValue || '').toLowerCase();
+  if (!url) {
+    return true;
+  }
+
+  return (
+    url.includes('/login') ||
+    url.includes('/checkpoint') ||
+    url.includes('/recover') ||
+    url.includes('/two_factor') ||
+    url.includes('/security/')
+  );
+}
+
+async function hasAuthenticatedFacebookSession(context, page) {
   const cookies = await context.cookies(FACEBOOK_COOKIE_SCOPE_URL);
-  return cookies.some((cookie) => cookie.name === 'c_user' && cookie.value);
+  const hasCUser = cookies.some((cookie) => cookie.name === 'c_user' && cookie.value);
+  const hasXs = cookies.some((cookie) => cookie.name === 'xs' && cookie.value);
+  if (!hasCUser || !hasXs) {
+    return false;
+  }
+
+  const currentUrl = page ? page.url() : '';
+  return !isLoginOrCheckpointUrl(currentUrl);
 }
 
 async function persistActiveSessionState() {
@@ -122,12 +147,18 @@ async function persistActiveSessionState() {
 }
 
 async function tryAutoSaveFacebookSession() {
-  if (!activeContext || saveInProgress) {
+  if (!activeContext || !activePage || saveInProgress) {
     return false;
   }
 
-  const isAuthenticated = await hasAuthenticatedFacebookSession(activeContext);
+  const isAuthenticated = await hasAuthenticatedFacebookSession(activeContext, activePage);
   if (!isAuthenticated) {
+    consecutiveAuthenticatedPolls = 0;
+    return false;
+  }
+
+  consecutiveAuthenticatedPolls += 1;
+  if (consecutiveAuthenticatedPolls < REQUIRED_STABLE_POLLS) {
     return false;
   }
 
@@ -136,6 +167,10 @@ async function tryAutoSaveFacebookSession() {
   try {
     await persistActiveSessionState();
     lastAutoSavedAt = new Date();
+    consecutiveAuthenticatedPolls = 0;
+    logger.info('Facebook session auto-saved after stable authentication checks', {
+      pollsRequired: REQUIRED_STABLE_POLLS,
+    });
     await closeActiveLoginFlow();
     return true;
   } finally {
@@ -145,6 +180,7 @@ async function tryAutoSaveFacebookSession() {
 
 function startAutoSaveWatcher() {
   clearAutoSaveInterval();
+  consecutiveAuthenticatedPolls = 0;
 
   autoSaveInterval = setInterval(async () => {
     try {
@@ -159,6 +195,8 @@ async function startFacebookLoginFlow() {
   if (activeBrowser && activeContext && activePage) {
     return getFacebookSessionStatus();
   }
+
+  consecutiveAuthenticatedPolls = 0;
 
   const runningOnRender = Boolean(process.env.RENDER);
   const inProduction = env.nodeEnv === 'production';
@@ -217,6 +255,7 @@ async function saveFacebookSession() {
 
 async function closeActiveLoginFlow() {
   clearAutoSaveInterval();
+  consecutiveAuthenticatedPolls = 0;
 
   if (activePage) {
     await activePage.close().catch(() => {});

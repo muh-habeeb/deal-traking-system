@@ -67,6 +67,7 @@ let sessionViewerUrl = '';
 let sessionActionInProgress = false;
 let emailSendingEnabled = true;
 let telegramSendingEnabled = false;
+const SESSION_STATUS_POLL_MS = 5000;
 
 function getSessionButtons() {
     return {
@@ -149,7 +150,7 @@ function ensureSessionStatusPolling() {
 
     sessionStatusPoller = setInterval(() => {
         loadSessionStatus();
-    }, 3000);
+    }, SESSION_STATUS_POLL_MS);
 }
 
 async function runSessionAction(action) {

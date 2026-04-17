@@ -15,7 +15,7 @@
     "postinstall": "prisma generate",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up -d",
-    "docker:watch": "docker compose up --watch",
+    "docker:watch": "docker compose -f docker-compose.yml -f docker-compose.watch.yml up --watch",
     "docker:down": "docker compose down",
     "docker:down:volumes": "docker compose down -v",
     "docker:logs": "docker compose logs -f app",

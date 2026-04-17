@@ -86,6 +86,8 @@ const env = {
   playwrightStorageStatePath:
     process.env.PLAYWRIGHT_STORAGE_STATE_PATH || 'playwright/storageState.json',
   playwrightExecutablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH || '',
+  playwrightChannel: process.env.PLAYWRIGHT_CHANNEL || '',
+  playwrightLaunchRetries: Math.max(1, Math.trunc(parseNumber(process.env.PLAYWRIGHT_LAUNCH_RETRIES, 2))),
   playwrightBrowserArgs:
     process.env.PLAYWRIGHT_BROWSER_ARGS ||
     '--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage',

@@ -53,6 +53,11 @@ async function getListingImage(req, res, next) {
     return res.status(403).json({ message: 'Image host is not allowed' });
   }
 
+  const fallbackToDirectImage = () => {
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    return res.redirect(302, parsedUrl.toString());
+  };
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
@@ -71,7 +76,11 @@ async function getListingImage(req, res, next) {
     clearTimeout(timeout);
 
     if (!response.ok) {
-      return res.status(502).json({ message: `Upstream image request failed (${response.status})` });
+      logger.warn('Image proxy upstream returned non-OK, falling back to direct URL', {
+        status: response.status,
+        url: parsedUrl.toString(),
+      });
+      return fallbackToDirectImage();
     }
 
     const contentType = String(response.headers.get('content-type') || '').toLowerCase();
@@ -85,10 +94,17 @@ async function getListingImage(req, res, next) {
     return res.send(buffer);
   } catch (error) {
     if (error && error.name === 'AbortError') {
-      return res.status(504).json({ message: 'Image request timed out' });
+      logger.warn('Image proxy timed out, falling back to direct URL', {
+        url: parsedUrl.toString(),
+      });
+      return fallbackToDirectImage();
     }
 
-    return next(error);
+    logger.warn('Image proxy failed, falling back to direct URL', {
+      url: parsedUrl.toString(),
+      error: error && error.message ? error.message : String(error),
+    });
+    return fallbackToDirectImage();
   }
 }
 
