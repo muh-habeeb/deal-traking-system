@@ -278,37 +278,6 @@ async function resolveUsernameChatId(username) {
     }
   }
 
-  let updates = [];
-  try {
-    updates = await fetchTelegramUpdates();
-  } catch (error) {
-    if (isWebhookConflictError(error)) {
-      const conflictError = new Error(
-        'Telegram webhook is active, so username lookup via updates is blocked. Ask the user to send /start and keep TELEGRAM_CHAT_ID fallback, or disable webhook with deleteWebhook if you want polling lookup.'
-      );
-      conflictError.status = 400;
-      throw conflictError;
-    }
-
-    throw error;
-  }
-
-  for (let i = updates.length - 1; i >= 0; i -= 1) {
-    const update = updates[i];
-    const users = collectPotentialUsersFromUpdate(update);
-
-    for (const user of users) {
-      const candidateUsername = String(user && user.username ? user.username : '')
-        .trim()
-        .replace(/^@/, '')
-        .toLowerCase();
-
-      if (candidateUsername && candidateUsername === normalized && Number.isFinite(Number(user.id))) {
-        return String(user.id);
-      }
-    }
-  }
-
   return null;
 }
 
@@ -361,28 +330,53 @@ async function sendTelegramMessage(text) {
   const username = resolveTelegramUsername();
 
   if (username) {
-    const resolvedChatId = await resolveUsernameChatId(username);
-    if (!resolvedChatId) {
-      const error = new Error(
-        `Telegram username @${username} has not started the bot yet. Ask that user to open your bot and send /start once, then retry.`
-      );
-      error.status = 400;
-      throw error;
+    try {
+      const resolvedChatId = await resolveUsernameChatId(username);
+      if (resolvedChatId) {
+        const payload = await sendTelegramMessageToChat(text, resolvedChatId);
+        return {
+          ...(payload || {}),
+          recipientChatId: resolvedChatId,
+          recipientMode: 'username_resolved',
+          recipientUsername: `@${username}`,
+        };
+      }
+    } catch (error) {
+      const isWebhookBlocking = isWebhookConflictError(error);
+      if (isWebhookBlocking) {
+        throw error;
+      }
     }
 
-    const payload = await sendTelegramMessageToChat(text, resolvedChatId);
-    return {
-      ...(payload || {}),
-      recipientChatId: resolvedChatId,
-      recipientMode: 'username_resolved',
-      recipientUsername: `@${username}`,
-    };
+    const fallbackChatId = String(env.telegram.chatId || '').trim();
+    if (fallbackChatId) {
+      logger.info(`Username @${username} could not be resolved; using TELEGRAM_CHAT_ID fallback`);
+      const payload = await sendTelegramMessageToChat(text, fallbackChatId);
+      return {
+        ...(payload || {}),
+        recipientChatId: fallbackChatId,
+        recipientMode: 'chat_id_fallback',
+      };
+    }
+
+    const error = new Error(
+      `Telegram username @${username} could not be resolved, and no fallback TELEGRAM_CHAT_ID is configured.`
+    );
+    error.status = 400;
+    throw error;
   }
 
-  const payload = await sendTelegramMessageToChat(text, env.telegram.chatId);
+  const fallbackChatId = String(env.telegram.chatId || '').trim();
+  if (!fallbackChatId) {
+    const error = new Error('Telegram delivery requires either a configured username or TELEGRAM_CHAT_ID env var.');
+    error.status = 400;
+    throw error;
+  }
+
+  const payload = await sendTelegramMessageToChat(text, fallbackChatId);
   return {
     ...(payload || {}),
-    recipientChatId: env.telegram.chatId,
+    recipientChatId: fallbackChatId,
     recipientMode: 'chat_id_fallback',
   };
 }
