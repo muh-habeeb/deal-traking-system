@@ -52,7 +52,7 @@ async function sendTelegramNotificationTest(_req, res, next) {
       message: noFallback
         ? 'No Telegram username saved and no fallback chat-id configured. Save a username or set TELEGRAM_CHAT_ID.'
         : userNotFound
-          ? 'Telegram cannot reach this user. Ensure they have opened your bot and interacted with it.'
+          ? 'Telegram cannot reach this user by username yet. Open the bot from that account and send /start <username> once (example: /start maya_vi_0), then retry.'
           : webhookConflict
             ? 'Webhook conflict detected. The app now auto-removes webhook for username lookup, so retry once. If it still fails, verify bot token/network and try again.'
             : rawMessage,

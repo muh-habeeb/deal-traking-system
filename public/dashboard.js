@@ -382,9 +382,31 @@ async function loadEmailDeliverySettings() {
     renderEmailDeliveryControls();
 }
 
+async function loadTelegramRecipientSettings() {
+    const data = await api('/api/settings/telegram-recipient');
+    const input = document.getElementById('telegramUsername');
+
+    telegramUsername = normalizeTelegramUsername(data.telegramUsername);
+
+    if (input) {
+        input.value = displayTelegramUsername(telegramUsername);
+    }
+
+    renderTelegramDeliveryControls();
+}
+
 async function loadTelegramDeliverySettings() {
     const data = await api('/api/settings/telegram-delivery');
     telegramSendingEnabled = Boolean(data.telegramSendingEnabled);
+
+    if (typeof data.telegramUsername === 'string') {
+        telegramUsername = normalizeTelegramUsername(data.telegramUsername);
+        const input = document.getElementById('telegramUsername');
+        if (input) {
+            input.value = displayTelegramUsername(telegramUsername);
+        }
+    }
+
     renderTelegramDeliveryControls();
 }
 

@@ -306,6 +306,69 @@ function collectPotentialUsersFromUpdate(update) {
   return users;
 }
 
+function normalizeAliasValue(value) {
+  return String(value || '')
+    .trim()
+    .replace(/^@/, '')
+    .replace(/^swoop_/i, '')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
+function extractAliasCommandCandidate(update) {
+  const message =
+    (update && update.message) ||
+    (update && update.edited_message) ||
+    null;
+
+  if (!message || !message.from || !Number.isFinite(Number(message.from.id))) {
+    return null;
+  }
+
+  const text = String(message.text || '').trim();
+  if (!text) {
+    return null;
+  }
+
+  const startWithPayload = text.match(/^\/start(?:@\w+)?\s+(.+)$/i);
+  if (startWithPayload && startWithPayload[1]) {
+    return {
+      alias: normalizeAliasValue(startWithPayload[1]),
+      chatId: String(message.from.id),
+    };
+  }
+
+  const bindCommand = text.match(/^\/(?:swoop|bindrecipient|bind)(?:@\w+)?\s+(.+)$/i);
+  if (bindCommand && bindCommand[1]) {
+    return {
+      alias: normalizeAliasValue(bindCommand[1]),
+      chatId: String(message.from.id),
+    };
+  }
+
+  return null;
+}
+
+function resolveAliasLinkedChatId(updates, normalizedUsername) {
+  const target = normalizeAliasValue(normalizedUsername);
+  if (!target || !Array.isArray(updates) || updates.length === 0) {
+    return null;
+  }
+
+  for (let i = updates.length - 1; i >= 0; i -= 1) {
+    const candidate = extractAliasCommandCandidate(updates[i]);
+    if (!candidate || !candidate.alias || !candidate.chatId) {
+      continue;
+    }
+
+    if (candidate.alias === target) {
+      return candidate.chatId;
+    }
+  }
+
+  return null;
+}
+
 async function resolveUsernameChatId(username) {
   const normalized = String(username || '').trim().replace(/^@/, '').toLowerCase();
   if (!normalized) {
@@ -357,6 +420,12 @@ async function resolveUsernameChatId(username) {
         return String(user.id);
       }
     }
+  }
+
+  const aliasLinkedChatId = resolveAliasLinkedChatId(updates, normalized);
+  if (aliasLinkedChatId) {
+    logger.info(`Resolved Telegram recipient via alias command for @${normalized}`);
+    return aliasLinkedChatId;
   }
 
   return null;
@@ -414,7 +483,7 @@ async function sendTelegramMessage(text) {
     const resolvedChatId = await resolveUsernameChatId(username);
     if (!resolvedChatId) {
       const error = new Error(
-        `Telegram username @${username} could not be resolved. Open the bot from this account, send any message, then retry.`
+        `Telegram username @${username} could not be resolved. Open the bot and send /start ${username} (or /swoop ${username}) once, then retry.`
       );
       error.status = 400;
       throw error;
