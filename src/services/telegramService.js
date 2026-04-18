@@ -11,13 +11,10 @@ function isTelegramReady() {
 }
 
 function resolveTelegramUsername() {
-  const fromSettings = String(getTelegramUsername() || '').trim().replace(/^@/, '');
-  if (fromSettings) {
-    return fromSettings;
-  }
-
-  return String(env.telegram.username || '').trim().replace(/^@/, '');
+  return String(getTelegramUsername() || '').trim().replace(/^@/, '');
 }
+
+let pollingModeEnsured = false;
 
 async function sendTelegramMessageToChat(text, chatId) {
   const endpoint = `${env.telegram.apiBaseUrl}/bot${env.telegram.token}/sendMessage`;
@@ -166,6 +163,58 @@ function isWebhookConflictError(error) {
   );
 }
 
+async function deleteWebhookForPolling() {
+  const endpoint = `${env.telegram.apiBaseUrl}/bot${env.telegram.token}/deleteWebhook`;
+  const timeoutMs = Math.max(1000, Number(env.telegram.requestTimeoutMs || 15000));
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        drop_pending_updates: false,
+      }),
+      signal: controller.signal,
+    });
+
+    const bodyText = await response.text().catch(() => '');
+    let payload = null;
+    try {
+      payload = bodyText ? JSON.parse(bodyText) : null;
+    } catch (_error) {
+      payload = null;
+    }
+
+    if (!response.ok || !payload || payload.ok === false) {
+      const description =
+        (payload && payload.description) || bodyText || 'Unknown Telegram API error';
+      const apiError = new Error(
+        `Telegram API request failed (${response.status}): ${description}`
+      );
+      apiError.status = response.status >= 500 ? 502 : 400;
+      throw apiError;
+    }
+
+    logger.warn('Telegram webhook was active; automatically deleted webhook to enable username lookup via updates');
+    return true;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function ensurePollingModeForUsernameLookup() {
+  if (pollingModeEnsured) {
+    return;
+  }
+
+  await deleteWebhookForPolling();
+  pollingModeEnsured = true;
+}
+
 async function getChatByUsername(username) {
   const normalized = String(username || '').trim().replace(/^@/, '');
   if (!normalized) {
@@ -278,6 +327,38 @@ async function resolveUsernameChatId(username) {
     }
   }
 
+  await ensurePollingModeForUsernameLookup();
+
+  let updates = [];
+  try {
+    updates = await fetchTelegramUpdates();
+  } catch (error) {
+    if (!isWebhookConflictError(error)) {
+      throw error;
+    }
+
+    // Telegram can briefly report webhook conflicts after deletion; force one more ensure + retry.
+    pollingModeEnsured = false;
+    await ensurePollingModeForUsernameLookup();
+    updates = await fetchTelegramUpdates();
+  }
+
+  for (let i = updates.length - 1; i >= 0; i -= 1) {
+    const update = updates[i];
+    const users = collectPotentialUsersFromUpdate(update);
+
+    for (const user of users) {
+      const candidateUsername = String(user && user.username ? user.username : '')
+        .trim()
+        .replace(/^@/, '')
+        .toLowerCase();
+
+      if (candidateUsername && candidateUsername === normalized && Number.isFinite(Number(user.id))) {
+        return String(user.id);
+      }
+    }
+  }
+
   return null;
 }
 
@@ -330,40 +411,22 @@ async function sendTelegramMessage(text) {
   const username = resolveTelegramUsername();
 
   if (username) {
-    try {
-      const resolvedChatId = await resolveUsernameChatId(username);
-      if (resolvedChatId) {
-        const payload = await sendTelegramMessageToChat(text, resolvedChatId);
-        return {
-          ...(payload || {}),
-          recipientChatId: resolvedChatId,
-          recipientMode: 'username_resolved',
-          recipientUsername: `@${username}`,
-        };
-      }
-    } catch (error) {
-      const isWebhookBlocking = isWebhookConflictError(error);
-      if (isWebhookBlocking) {
-        throw error;
-      }
+    const resolvedChatId = await resolveUsernameChatId(username);
+    if (!resolvedChatId) {
+      const error = new Error(
+        `Telegram username @${username} could not be resolved. Open the bot from this account, send any message, then retry.`
+      );
+      error.status = 400;
+      throw error;
     }
 
-    const fallbackChatId = String(env.telegram.chatId || '').trim();
-    if (fallbackChatId) {
-      logger.info(`Username @${username} could not be resolved; using TELEGRAM_CHAT_ID fallback`);
-      const payload = await sendTelegramMessageToChat(text, fallbackChatId);
-      return {
-        ...(payload || {}),
-        recipientChatId: fallbackChatId,
-        recipientMode: 'chat_id_fallback',
-      };
-    }
-
-    const error = new Error(
-      `Telegram username @${username} could not be resolved, and no fallback TELEGRAM_CHAT_ID is configured.`
-    );
-    error.status = 400;
-    throw error;
+    const payload = await sendTelegramMessageToChat(text, resolvedChatId);
+    return {
+      ...(payload || {}),
+      recipientChatId: resolvedChatId,
+      recipientMode: 'username_resolved',
+      recipientUsername: `@${username}`,
+    };
   }
 
   const fallbackChatId = String(env.telegram.chatId || '').trim();

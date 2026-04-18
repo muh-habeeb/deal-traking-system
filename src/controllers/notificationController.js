@@ -54,7 +54,7 @@ async function sendTelegramNotificationTest(_req, res, next) {
         : userNotFound
           ? 'Telegram cannot reach this user. Ensure they have opened your bot and interacted with it.'
           : webhookConflict
-            ? 'Webhook mode is active for this bot. Username lookup via getUpdates is blocked. Keep chat-id fallback, or disable webhook (deleteWebhook) if you want polling-based username lookup.'
+            ? 'Webhook conflict detected. The app now auto-removes webhook for username lookup, so retry once. If it still fails, verify bot token/network and try again.'
             : rawMessage,
     });
   }

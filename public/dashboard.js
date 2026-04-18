@@ -462,17 +462,14 @@ async function saveTelegramRecipient(event) {
     const input = document.getElementById('telegramUsername');
     const normalized = normalizeTelegramUsername(input.value);
 
-    if (!normalized) {
-        notice.textContent = 'Telegram username is required.';
-        return;
-    }
-
-    if (!isValidTelegramUsername(normalized)) {
+    if (normalized && !isValidTelegramUsername(normalized)) {
         notice.textContent = 'Invalid Telegram username. Use letters/numbers/underscore, 5-32 chars.';
         return;
     }
 
-    notice.textContent = 'Saving Telegram username...';
+    notice.textContent = normalized
+        ? 'Saving Telegram username...'
+        : 'Clearing Telegram username and switching to default chat-id...';
 
     try {
         const result = await api('/api/settings/telegram-recipient', {
@@ -483,7 +480,9 @@ async function saveTelegramRecipient(event) {
         telegramUsername = normalizeTelegramUsername(result.telegramUsername);
         input.value = displayTelegramUsername(telegramUsername);
         renderTelegramDeliveryControls();
-        notice.textContent = `Telegram username saved: ${displayTelegramUsername(telegramUsername)}`;
+        notice.textContent = telegramUsername
+            ? `Telegram username saved: ${displayTelegramUsername(telegramUsername)}`
+            : 'Telegram username cleared. Default chat-id recipient is active.';
     } catch (error) {
         notice.textContent = error.message;
     }

@@ -91,7 +91,7 @@ async function getTelegramRecipientSettings(_req, res) {
 
 async function updateTelegramRecipientSettings(req, res) {
   const normalized = normalizeTelegramUsername(req.body && req.body.telegramUsername);
-  if (!normalized || !isValidTelegramUsername(normalized)) {
+  if (normalized && !isValidTelegramUsername(normalized)) {
     return res.status(400).json({
       message: 'Invalid telegramUsername. Use letters/numbers/underscore, 5-32 chars.',
     });
@@ -101,6 +101,7 @@ async function updateTelegramRecipientSettings(req, res) {
   return res.json({
     telegramUsername: settings.telegramUsername,
     recipientConfigured: Boolean(settings.telegramUsername),
+    usingFallbackRecipient: !settings.telegramUsername,
   });
 }
 
